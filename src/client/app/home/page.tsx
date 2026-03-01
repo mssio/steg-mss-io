@@ -1,11 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/client/components/ui/card";
 import { APITester } from "./APITester";
-import "./index.css";
 
-import logo from "./logo.svg";
+import logo from "@/client/logo.svg";
 import reactLogo from "./react.svg";
 
-export function App() {
+function App() {
   return (
     <div className="container mx-auto p-8 text-center relative z-10">
       <div className="flex justify-center items-center gap-8 mb-8">
