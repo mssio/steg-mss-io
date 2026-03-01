@@ -1,25 +1,9 @@
-const route = {
-  "/api/hello": {
-    async GET(req) {
-      return Response.json({
-        message: "Hello, world!",
-        method: "GET",
-      });
-    },
-    async PUT(req) {
-      return Response.json({
-        message: "Hello, world!",
-        method: "PUT",
-      });
-    },
-  },
+import { helloRoute, helloNameRoute } from "@/server/app/hello/route";
 
-  "/api/hello/:name": async req => {
-    const name = req.params.name;
-    return Response.json({
-      message: `Hello, ${name}!`,
-    });
-  },
-}
+const route = {
+  "/api/hello": helloRoute,
+
+  "/api/hello/:name": helloNameRoute,
+};
 
 export default route;
