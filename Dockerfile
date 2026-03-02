@@ -13,8 +13,8 @@ RUN bun install --production --frozen-lockfile
 # Copy the rest of the application into the container
 COPY . .
 
-# Expose the port (DigitalOcean will set PORT env var)
-EXPOSE 8080
+# Expose the default port
+EXPOSE 3000
 
 # Run the application
 CMD ["bun", "src/index.ts"]

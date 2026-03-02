@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg"];
+const ACCEPT = "image/png,image/jpeg";
 
 function validateImageFile(file: File): string | null {
   if (!ALLOWED_TYPES.includes(file.type)) {
@@ -25,9 +26,13 @@ export function HideForm () {
   function setImage(file: File) {
     const error = validateImageFile(file);
     if (error) {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setImageFile(null);
+      setPreviewUrl(null);
       setImageError(error);
       return;
     }
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setImageError(null);
     setImageFile(file);
     setPreviewUrl(URL.createObjectURL(file));
@@ -176,10 +181,9 @@ export function HideForm () {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/png,image/jpeg"
+                  accept={ACCEPT}
                   onChange={handleFileChange}
                   className="sr-only"
-                  aria-hidden
                 />
 
                 {imageError && (
@@ -208,10 +212,13 @@ export function HideForm () {
                   </div>
                 ) : (
                   <div
+                    role="button"
+                    tabIndex={0}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
                     className={`mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 cursor-pointer transition-colors ${
                       isDragging
                         ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
@@ -225,7 +232,7 @@ export function HideForm () {
                       Drag & drop an image here, or click to browse
                     </span>
                     <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      PNG, JPEG only
+                      JPG, PNG only
                     </span>
                   </div>
                 )}
@@ -239,7 +246,7 @@ export function HideForm () {
             <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4">
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !imageFile}
                 className="flex-1 rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:shadow-none dark:hover:bg-indigo-400 dark:focus-visible:outline-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? "Hiding..." : "Hide message"}
