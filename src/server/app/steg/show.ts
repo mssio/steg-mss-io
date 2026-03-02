@@ -6,7 +6,7 @@ const showSchema = z.object({
   image_base64: z.base64(),
 });
 
-export default const showRoute = {
+const showRoute = {
   async POST (req) {
     const body = await req.json();
     const parsedReq = await showSchema.safeParseAsync(body);
@@ -46,3 +46,5 @@ export default const showRoute = {
     });
   },
 };
+
+export default showRoute;

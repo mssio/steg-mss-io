@@ -1,6 +1,107 @@
+import { useRef, useState } from "react";
+import { Link, useNavigate } from "react-router";
+
+const ALLOWED_TYPES = ["image/png", "image/jpeg"];
+const ACCEPT = "image/png,image/jpeg";
+
+function validateImageFile(file: File): string | null {
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return "Only PNG and JPEG images are allowed.";
+  }
+  return null;
+}
+
 export function ShowForm () {
+  const navigate = useNavigate();
+  const [password, setPassword] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function setImage(file: File) {
+    const error = validateImageFile(file);
+    if (error) {
+      setImageError(error);
+      return;
+    }
+    setImageError(null);
+    setImageFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+  }
+
+  function clearImage() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setImageFile(null);
+    setPreviewUrl(null);
+    setImageError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) setImage(file);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(true);
+  }
+
+  function handleDragLeave() {
+    setIsDragging(false);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) setImage(file);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!imageFile) return;
+
+    setIsLoading(true);
+    setSubmitError(null);
+
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(imageFile);
+      });
+
+      const image_type = imageFile.type === "image/png" ? "png" : "jpeg";
+
+      const res = await fetch("/api/steg/show", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, image_type, image_base64: base64 }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setSubmitError("Something went wrong. Please try again.");
+        return;
+      }
+
+      navigate("/show/complete", { state: { result: data.res } });
+    } catch {
+      setSubmitError("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   return (
-    <div className="dark:bg-gray-900 min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center">
       <div className="px-6 lg:px-8 w-full">
         <div className="mx-auto max-w-2xl">
           <div className="text-center mb-8">
@@ -33,6 +134,12 @@ export function ShowForm () {
                   className="sr-only"
                   aria-hidden
                 />
+
+                {imageError && (
+                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                    {imageError}
+                  </p>
+                )}
 
                 {previewUrl ? (
                   <div className="mt-2 relative inline-block">
@@ -99,15 +206,20 @@ export function ShowForm () {
               </div>
             </div>
 
+            {submitError && (
+              <p className="mt-4 text-sm text-red-600 dark:text-red-400">{submitError}</p>
+            )}
+
             <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4">
               <button
                 type="submit"
-                className="flex-1 rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:shadow-none dark:hover:bg-indigo-400 dark:focus-visible:outline-indigo-500"
+                disabled={isLoading}
+                className="flex-1 rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:shadow-none dark:hover:bg-indigo-400 dark:focus-visible:outline-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Unhide message
+                {isLoading ? "Unhiding..." : "Unhide message"}
               </button>
               <Link
-                href="/"
+                to="/"
                 className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 px-3.5 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 shadow-xs hover:bg-gray-50 dark:hover:bg-gray-700 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
               >
                 Back

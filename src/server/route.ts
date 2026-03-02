@@ -6,7 +6,7 @@ const route = {
   "/api/hello": helloRoute,
   "/api/hello/:name": helloNameRoute,
   "/api/steg/hide": hideRoute,
-  "/api/steg/show": hideRoute,
+  "/api/steg/show": showRoute,
 };
 
 export default route;
