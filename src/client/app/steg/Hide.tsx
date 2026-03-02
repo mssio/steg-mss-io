@@ -106,7 +106,7 @@ export function HideForm () {
   }
 
   return (
-    <div className="dark:bg-gray-900 min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center">
       <div className="px-6 lg:px-8 w-full">
         <div className="mx-auto max-w-2xl">
           <div className="text-center mb-8">
