@@ -68,7 +68,10 @@ export function ShowForm () {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!imageFile) return;
+    if (!imageFile) {
+      setImageError("Please select an image.");
+      return;
+    }
 
     setIsLoading(true);
     setSubmitError(null);
@@ -136,7 +139,6 @@ export function ShowForm () {
                   accept={ACCEPT}
                   onChange={handleFileChange}
                   className="sr-only"
-                  aria-hidden
                 />
 
                 {imageError && (
@@ -165,10 +167,13 @@ export function ShowForm () {
                   </div>
                 ) : (
                   <div
+                    role="button"
+                    tabIndex={0}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
                     className={`mt-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 cursor-pointer transition-colors ${
                       isDragging
                         ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
@@ -217,7 +222,7 @@ export function ShowForm () {
             <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4">
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !imageFile}
                 className="flex-1 rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:shadow-none dark:hover:bg-indigo-400 dark:focus-visible:outline-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? "Unhiding..." : "Unhide message"}

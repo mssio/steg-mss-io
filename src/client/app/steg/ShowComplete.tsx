@@ -9,7 +9,7 @@ export function ShowComplete() {
 
   if (result?.secret_message == null) {
     return (
-      <div className="dark:bg-gray-900 min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 dark:text-gray-300 mb-4">No result to display.</p>
           <button
