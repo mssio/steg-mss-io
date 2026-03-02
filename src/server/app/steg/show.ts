@@ -14,7 +14,7 @@ const showRoute = {
     if (!parsedReq.success) {
       return Response.json({
         success: false,
-        api: "hide",
+        api: "show",
         errors: parsedReq.error.flatten().fieldErrors
       });
     }
@@ -27,10 +27,14 @@ const showRoute = {
       const res = await fetch(apiUrl, {
         "method": "POST",
         "headers": {
+          "Content-Type": "application/json",
           "x-api-token": apiKey,
         },
         "body": JSON.stringify(parsedReq.data),
       });
+      if (!res.ok) {
+        return Response.json({ success: false, api: "show" });
+      }
       resPayload = await res.json();
     } catch (error) {
       return Response.json({
