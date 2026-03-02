@@ -1,4 +1,68 @@
+import { useRef, useState } from "react";
+
+const ALLOWED_TYPES = ["image/png", "image/jpeg"];
+
+function validateImageFile(file: File): string | null {
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return "Only PNG and JPEG images are allowed.";
+  }
+  return null;
+}
+
 export function HideForm () {
+  const [message, setMessage] = useState("");
+  const [password, setPassword] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function setImage(file: File) {
+    const error = validateImageFile(file);
+    if (error) {
+      setImageError(error);
+      return;
+    }
+    setImageError(null);
+    setImageFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+  }
+
+  function clearImage() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setImageFile(null);
+    setPreviewUrl(null);
+    setImageError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) setImage(file);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(true);
+  }
+
+  function handleDragLeave() {
+    setIsDragging(false);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) setImage(file);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    // submission logic placeholder
+  }
+
   return (
     <div className="bg-white dark:bg-gray-900 min-h-screen flex items-center justify-center">
       <div className="px-6 lg:px-8 w-full">
@@ -70,11 +134,17 @@ export function HideForm () {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/png,image/jpeg"
                   onChange={handleFileChange}
                   className="sr-only"
                   aria-hidden
                 />
+
+                {imageError && (
+                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                    {imageError}
+                  </p>
+                )}
 
                 {previewUrl ? (
                   <div className="mt-2 relative inline-block">
@@ -113,7 +183,7 @@ export function HideForm () {
                       Drag & drop an image here, or click to browse
                     </span>
                     <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      PNG, JPG, GIF, WebP
+                      PNG, JPEG only
                     </span>
                   </div>
                 )}
