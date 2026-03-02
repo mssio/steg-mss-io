@@ -45,7 +45,7 @@ The server will refuse to start if either variable is missing.
 
 The server is a lightweight gateway — it validates incoming requests with Zod and proxies them to the external steganography API. No data is stored.
 
-```
+```text
 Browser → POST /api/steg/hide  →  Bun server  →  STEG_API_URL/hide
 Browser → POST /api/steg/show  →  Bun server  →  STEG_API_URL/show
 ```
@@ -54,7 +54,7 @@ Images are base64-encoded in the browser before being sent. Supported formats: *
 
 ## Project structure
 
-```
+```text
 src/
   index.ts              # Server entry point
   server/

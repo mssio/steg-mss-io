@@ -12,7 +12,7 @@ A full-stack steganography web app for hiding and revealing secret messages insi
 
 The server acts as a **gateway** to an external steganography API. It validates requests with Zod, then proxies them to `STEG_API_URL` with the `STEG_API_KEY` auth header.
 
-```
+```text
 src/
   index.ts                  # Bun.serve() entry point — validates env vars, mounts routes
   server/
