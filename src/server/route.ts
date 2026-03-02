@@ -1,5 +1,6 @@
 import { helloRoute, helloNameRoute } from "@/server/app/hello/route";
-import { hideRoute, showRoute } from "@/server/app/steg/route";
+import hideRoute from "@/server/app/steg/hide";
+import showRoute from "@/server/app/steg/show";
 
 const route = {
   "/api/hello": helloRoute,

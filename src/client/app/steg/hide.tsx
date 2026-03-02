@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useNavigate } from "react-router";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg"];
 
@@ -10,12 +11,15 @@ function validateImageFile(file: File): string | null {
 }
 
 export function HideForm () {
+  const navigate = useNavigate();
   const [message, setMessage] = useState("");
   const [password, setPassword] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function setImage(file: File) {
@@ -60,11 +64,49 @@ export function HideForm () {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // submission logic placeholder
+    if (!imageFile) return;
+
+    setIsLoading(true);
+    setSubmitError(null);
+
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(imageFile);
+      });
+
+      const image_type = imageFile.type === "image/png" ? "png" : "jpeg";
+
+      const res = await fetch("/api/steg/hide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          secret_message: message,
+          password,
+          image_type,
+          image_base64: base64,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setSubmitError("Something went wrong. Please try again.");
+        return;
+      }
+
+      navigate("/hide/complete", { state: { result: data.res, image_type } });
+    } catch {
+      setSubmitError("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
-    <div className="bg-white dark:bg-gray-900 min-h-screen flex items-center justify-center">
+    <div className="dark:bg-gray-900 min-h-screen flex items-center justify-center">
       <div className="px-6 lg:px-8 w-full">
         <div className="mx-auto max-w-2xl">
           <div className="text-center mb-8">
@@ -190,12 +232,17 @@ export function HideForm () {
               </div>
             </div>
 
+            {submitError && (
+              <p className="mt-4 text-sm text-red-600 dark:text-red-400">{submitError}</p>
+            )}
+
             <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4">
               <button
                 type="submit"
-                className="flex-1 rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:shadow-none dark:hover:bg-indigo-400 dark:focus-visible:outline-indigo-500"
+                disabled={isLoading}
+                className="flex-1 rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:shadow-none dark:hover:bg-indigo-400 dark:focus-visible:outline-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Hide message
+                {isLoading ? "Hiding..." : "Hide message"}
               </button>
               <button
                 type="button"
