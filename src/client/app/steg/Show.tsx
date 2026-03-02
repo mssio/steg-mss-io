@@ -25,9 +25,13 @@ export function ShowForm () {
   function setImage(file: File) {
     const error = validateImageFile(file);
     if (error) {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setImageFile(null);
+      setPreviewUrl(null);
       setImageError(error);
       return;
     }
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setImageError(null);
     setImageFile(file);
     setPreviewUrl(URL.createObjectURL(file));

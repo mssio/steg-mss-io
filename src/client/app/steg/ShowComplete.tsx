@@ -7,7 +7,7 @@ export function ShowComplete() {
     result?: { secret_message?: string };
   };
 
-  if (!result?.secret_message) {
+  if (result?.secret_message == null) {
     return (
       <div className="dark:bg-gray-900 min-h-screen flex items-center justify-center">
         <div className="text-center">
