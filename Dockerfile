@@ -1,20 +1,28 @@
-# Use the official Bun image to run the application
-FROM oven/bun:debian
+# Stage 1: Build static assets
+FROM oven/bun:debian AS builder
 
-# Set the work directory to `/app`
 WORKDIR /app
 
-# Copy the package.json and bun.lock into the container
 COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
-# Install the dependencies
+COPY . .
+RUN bun run build
+
+# Stage 2: Production runtime
+FROM oven/bun:debian
+
+WORKDIR /app
+
+COPY package.json bun.lock ./
 RUN bun install --production --frozen-lockfile
 
-# Copy the rest of the application into the container
-COPY . .
+COPY --from=builder /app/dist ./dist
+COPY src ./src
+COPY tsconfig.json ./
 
-# Expose the default port
+ENV NODE_ENV=production
+
 EXPOSE 3000
 
-# Run the application
 CMD ["bun", "src/index.ts"]

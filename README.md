@@ -73,7 +73,7 @@ src/
 
 ```bash
 # Build
-docker buildx build --platform linux/amd64 -t registry.mss.io/steg-mss-io:1.0.3 --push .
+docker buildx build --platform linux/amd64 -t registry.mss.io/steg-mss-io:1.0.6 --push .
 
 # Run
 docker run -p 3000:3000 \

@@ -1,0 +1,9 @@
+services:
+  vault:
+    build: .
+    image: steg-mss-io
+    container_name: steg-mss-io
+    ports:
+      - "3000:3000"
+    volumes:
+      - .env:/vault/secrets/env.txt
