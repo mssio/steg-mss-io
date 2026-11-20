@@ -44,7 +44,7 @@ See §6 of [`docs/superpowers/specs/2026-11-20-steg-wasm-design.md`](docs/superp
 - `src/pages/Studio.tsx` pre-warms the worker on mount via `warm()` and wires `Hero` (`PrivacyBadge`), `ModeSwitch`, `ImageStage` (`Dropzone`, `SampleChips`, `Scanline`, `CompareSlider`) with `DiffToggle`, `HidePanel` (`CapacityMeter`, `PasswordField`, `HideResultCard`), `RevealPanel` (`PasswordField`, `RevealedMessage`), shared `StudioControls` (`PrimaryAction`, `Step`), and mobile `StickyActionBar`.
 - Hooks (`src/hooks/`): `useLoadedImage`, `useFileDrop`, `useObjectUrl` (revokes object URLs on reset/unmount), `useRun` (generation guard so stale worker results are dropped if the image or mode changes mid-run).
 - Styling & theme: Tailwind CSS v4 (`src/index.css`), darkroom dark default + light paper theme toggled via `src/lib/theme.ts` and initialized before first paint by `public/theme-init.js` (external script because CSP forbids inline scripts). Self-hosted `@fontsource/instrument-serif`, `@fontsource-variable/geist`, `@fontsource-variable/geist-mono`.
-- Deploy config: `deploy/security-headers.ts` is the single source of truth for response headers and immutable cache, imported by `vite.config.ts` (`preview.headers`) and mirrored in `public/_headers` and `vercel.json`. `deploy/security-headers.test.ts` checks parity plus `wrangler.jsonc` SPA settings.
+- Deploy config: `deploy/security-headers.ts` is the single source of truth for response headers and immutable cache, imported by `vite.config.ts` (`preview.headers`) and mirrored in `public/_headers` and `vercel.json`. `deploy/security-headers.test.ts` checks parity plus `wrangler.jsonc` / `public/_redirects` SPA routing (`not_found_handling: "none"` with explicit 200 proxy rules) and the `vercel.json` rewrite (`/((?!assets/).*)` → `/index.html`).
 
 ## Commands
 
@@ -66,7 +66,7 @@ See §6 of [`docs/superpowers/specs/2026-11-20-steg-wasm-design.md`](docs/superp
 
 1. **No logging of user data:** never log messages, passwords, or image bytes in Rust or TypeScript (no `console.*`, preserve manual `Debug` on `Hidden`).
 2. **Do not edit static art assets:** never modify `public/hero.webp`, `public/og-art.png`, or `public/samples/*.jpg`.
-3. **Password & error semantics:** use passwords verbatim (no trimming or Unicode normalization); clear password fields after every hide/reveal; keep all reveal failure paths returning the single generic error (`No message found, or the password is wrong.`).
+3. **Password & error semantics:** use passwords verbatim (no trimming or Unicode normalization); clear password fields after every hide/reveal; on reveal, every failure after the image is decoded returns the single generic error (`No message found, or the password is wrong.`), and the three pre-decode input checks (`EmptyPassword`, `Unsupported`, and `TooLarge`) are the only exceptions.
 4. **Format stability:** any change to framing, KDF, cipher, ECC, block ordering, or decoder requires bumping `VERSION` in `crates/steg-core/src/payload.rs` and updating the spec. Do not add support for legacy format v0.
 5. **Security headers stay in sync:** edit headers only in `deploy/security-headers.ts` together with their literal copies in `public/_headers` and `vercel.json`, and verify with `bun test deploy`. Never add inline scripts or third-party origins.
 6. **Host-neutral static site:** no server code, no Docker, no nginx.

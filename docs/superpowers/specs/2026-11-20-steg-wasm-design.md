@@ -106,9 +106,10 @@ salt     16 bytes (random)           nonce   12 bytes (random)
 - Master key = PBKDF2-HMAC-SHA256(password UTF-8, salt, 600,000 iterations, 32 bytes).
 - HKDF-SHA256 (`hkdf`, IKM = master key, no salt): `info="steg-mss-io/v1/order"` → 32-byte order seed; `info="steg-mss-io/v1/aes"` → 32-byte AES key.
 - AES-256-GCM (`aes-gcm`), AAD = `version || salt`.
-- Wrong password, corrupt image, unknown version, out-of-range length and GCM failure all return one error: "No message found, or the password is wrong." Never distinguish them.
-- Message limit: 500 Unicode code points (Rust `chars().count()`; JS `[...text].length`), plus the byte cap from capacity (UTF-8).
+- Wrong password, corrupt image, unknown version, out-of-range length and GCM failure all return one error: "No message found, or the password is wrong." Never distinguish them. Every failure after the image is decoded returns this single generic error; only the three pre-decode input checks ("Enter a password.", "Only PNG and JPEG images are supported.", and "Image is too large (max 40 megapixels).") return specific errors, as they inspect no hidden data.
+- Message limit: 500 Unicode code points (Rust `chars().count()`; JS `[...text].length`), plus the byte cap from capacity (UTF-8). Exceeding the character limit returns "This image can hold at most N characters." (N = `min(500, M)`); exceeding only the UTF-8 byte cap returns "This message is too long for this image (max M bytes)."
 - Empty message or empty password: rejected before any work ("Enter a message." / "Enter a password.").
+- Randomness (`getrandom`) or encryption failure on hide returns "Something went wrong. Please try again."
 
 ### 6.3 Bits, ECC and block layout
 - Bytes → bits MSB first. Hamming(7,4) per nibble with codeword order `p1 p2 d1 p3 d2 d3 d4`, `p1=d1^d2^d4`, `p2=d1^d3^d4`, `p3=d2^d3^d4`; decoding corrects one bit via syndrome `s1 + 2·s2 + 4·s3`. Byte-aligned payloads give whole nibbles, so no padding.
@@ -130,7 +131,7 @@ The decoder is unchanged from the Python script. Final numeric details (e.g. a s
 
 ### 6.5 Capacity, hide and reveal
 - `avail = total_blocks − 714`. Max body bytes `B = floor(floor(avail / 21) / 2)` (21 blocks per nibble). Max message bytes `M = B − 30`. `capacity() = clamp(min(500, M), 0)`, no KDF. If `M < 1`: "This image is too small to hold a message."
-- On hide, if the message's UTF-8 length exceeds `M` or its code points exceed 500: "This image can hold at most N characters." (N = `min(500, M)`).
+- On hide, if the message's code points exceed `min(500, M)`: "This image can hold at most N characters." (N = `min(500, M)`). If only its UTF-8 byte length exceeds `M`: "This message is too long for this image (max M bytes)."
 - **Reveal:** read the 714 header blocks → decode → check version `0x01` → PBKDF2 once → body order → read the first 84 blocks (length) → validate `16 ≤ length ≤ 2016` and that it fits `avail` → read only the blocks needed → AES-GCM decrypt → UTF-8.
 
 ### 6.6 Encoder evaluation ("make sure it's the best")
@@ -208,8 +209,8 @@ The output is a plain static `dist/`. The host is not decided yet (likely Vercel
 - **Headers, one source:** `deploy/security-headers.ts` exports the header map below. It is used by `vite.config.ts` for `preview.headers` (so the CSP is exercised locally before any deploy). `public/_headers` and `vercel.json` hold literal copies, and a `bun test` fails if either drifts from the source.
   - `Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`
   - `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`.
-- **Cloudflare:** `public/_headers` (`/*` rule with the headers; `/assets/*` with `Cache-Control: public, max-age=31536000, immutable`) is copied into `dist/`. `wrangler.jsonc`: assets-only Worker, `assets.directory = "./dist"`, `assets.not_found_handling = "single-page-application"`, no Worker script (so `_headers` applies to every response).
-- **Vercel:** `vercel.json` with `rewrites` `/(.*)` → `/index.html` (filesystem first), the same headers on `/(.*)`, immutable cache on `/assets/(.*)`. Vercel's build image has no Rust toolchain, so the README documents building locally or in CI and deploying the prebuilt `dist/`.
+- **Cloudflare:** `public/_headers` (`/*` rule with the headers; `/assets/*` with `Cache-Control: public, max-age=31536000, immutable`) and `public/_redirects` (explicit 200 proxies for `/reveal` and `/how-it-works` to `/`) are copied into `dist/`. `wrangler.jsonc`: assets-only Worker, `assets.directory = "./dist"`, `assets.not_found_handling = "none"`, no Worker script (so `_headers` applies to every response and missing `/assets/*` return 404 rather than cached HTML).
+- **Vercel:** `vercel.json` with `rewrites` `/((?!assets/).*)` → `/index.html` (filesystem first, excluding `/assets/` so missing assets 404), the same headers on `/(.*)`, immutable cache on `/assets/(.*)`. Vercel's build image has no Rust toolchain, so the README documents building locally or in CI and deploying the prebuilt `dist/`.
 - `.wasm` gets `application/wasm` from both hosts and from Vite by default; verify it in preview.
 - SPA deep links (`/reveal`, `/how-it-works`) must return `index.html` with 200 on both hosts.
 
