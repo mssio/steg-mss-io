@@ -122,6 +122,7 @@
   --safelight: rgb(255 181 71 / 0.07);
   --grain-opacity: 0.045;
   --grain-blend: screen;
+  --toaster-bottom: 1.5rem;
 }
 
 :root[data-theme="light"] {
@@ -150,6 +151,13 @@
   --safelight: rgb(184 110 0 / 0.06);
   --grain-opacity: 0.05;
   --grain-blend: multiply;
+}
+
+/* Below lg, keep toasts clear of the mobile sticky action bar. */
+@media (max-width: 63.99rem) {
+  :root {
+    --toaster-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 @layer base {

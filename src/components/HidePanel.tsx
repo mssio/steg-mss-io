@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { CapacityMeter } from '@/components/CapacityMeter'
 import { PasswordField } from '@/components/PasswordField'
 import { PrimaryAction, Step } from '@/components/StudioControls'
+import type { CapacityDetail } from '@/lib/steg-types'
 import { cn } from '@/lib/utils'
 
 /** The primary action; rendered in the panel on desktop and in the sticky bar below `lg`. */
@@ -14,9 +15,7 @@ export interface HidePanelProps {
   onMessage: (value: string) => void
   password: string
   onPassword: (value: string) => void
-  chars: number
-  bytes: number
-  capacity: number | null
+  capacity: CapacityDetail | null
   measuring: boolean
   /** Why the button is disabled (shown under it), or null when ready. */
   blocker: string | null
@@ -32,8 +31,6 @@ export function HidePanel({
   onMessage,
   password,
   onPassword,
-  chars,
-  bytes,
   capacity,
   measuring,
   blocker,
@@ -55,7 +52,7 @@ export function HidePanel({
           className="block min-h-32 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2.5 text-[0.9375rem] leading-relaxed transition-colors placeholder:text-muted-foreground focus-visible:border-ring dark:bg-input/15"
         />
         <div id="hide-message-meter">
-          <CapacityMeter chars={chars} bytes={bytes} max={capacity} pending={measuring} />
+          <CapacityMeter message={message} capacity={capacity} pending={measuring} />
         </div>
       </Step>
 

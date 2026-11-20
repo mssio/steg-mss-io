@@ -245,4 +245,39 @@ describe('createStegClient', () => {
     workers[1].emitMessage({ id: workers[1].posted[0].message.id, ok: true, result: 123 })
     expect(await pCap).toBe(123)
   })
+
+  test('warm spawns the worker once and subsequent calls reuse it', async () => {
+    const workers: FakeWorker[] = []
+    const client = createStegClient(() => {
+      const w = new FakeWorker()
+      workers.push(w)
+      return w
+    })
+
+    expect(workers).toHaveLength(0)
+
+    const pWarm = client.warm()
+    expect(workers).toHaveLength(1)
+    expect(workers[0].posted).toHaveLength(1)
+    const warmReq = workers[0].posted[0]
+    expect(warmReq.message.op).toBe('warm')
+    expect(warmReq.transfer).toHaveLength(0)
+    workers[0].emitMessage({ id: warmReq.message.id, ok: true, result: null })
+    expect(await pWarm).toBeUndefined()
+
+    const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' })
+    const pDetail = client.capacityDetail(blob)
+    await Bun.sleep(0)
+    expect(workers).toHaveLength(1)
+    expect(workers[0].posted).toHaveLength(2)
+    const detailReq = workers[0].posted[1]
+    expect(detailReq.message.op).toBe('capacityDetail')
+    expect(detailReq.transfer).toHaveLength(1)
+    workers[0].emitMessage({
+      id: detailReq.message.id,
+      ok: true,
+      result: { chars: 500, bytes: 1117 },
+    })
+    expect(await pDetail).toEqual({ chars: 500, bytes: 1117 })
+  })
 })

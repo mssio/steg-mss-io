@@ -1,4 +1,4 @@
-import init, { capacity, diff_preview, hide, reveal } from '../wasm/steg_core.js'
+import init, { capacity, capacity_detail, diff_preview, hide, reveal } from '../wasm/steg_core.js'
 import wasmUrl from '../wasm/steg_core_bg.wasm?url'
 import type { StegWorkerRequest, StegWorkerResponse } from '../lib/steg-types'
 
@@ -86,10 +86,27 @@ scope.addEventListener('message', async (event) => {
         scope.postMessage({ id: req.id, ok: true, result: max })
         return
       }
+      case 'capacityDetail': {
+        const out = capacity_detail(new Uint8Array(req.image))
+        let chars: number
+        let bytes: number
+        try {
+          chars = out.chars
+          bytes = out.bytes
+        } finally {
+          out.free()
+        }
+        scope.postMessage({ id: req.id, ok: true, result: { chars, bytes } })
+        return
+      }
       case 'diff': {
         const png = diff_preview(new Uint8Array(req.original), new Uint8Array(req.stego))
         const buffer = toTransferableBuffer(png)
         scope.postMessage({ id: req.id, ok: true, result: buffer }, [buffer])
+        return
+      }
+      case 'warm': {
+        scope.postMessage({ id: req.id, ok: true, result: null })
         return
       }
     }

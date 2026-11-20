@@ -12,9 +12,9 @@ import { StickyActionBar } from '@/components/StickyActionBar'
 import { useLoadedImage } from '@/hooks/useLoadedImage'
 import { useObjectUrl } from '@/hooks/useObjectUrl'
 import { useRun } from '@/hooks/useRun'
-import { codePoints, stegFileName, utf8Bytes } from '@/lib/format'
-import { capacity, diffPreview, hide, reveal } from '@/lib/steg-client'
-import type { HideOutput } from '@/lib/steg-types'
+import { capacityState, codePoints, stegFileName } from '@/lib/format'
+import { capacityDetail, diffPreview, hide, reveal, warm } from '@/lib/steg-client'
+import type { CapacityDetail, HideOutput } from '@/lib/steg-types'
 
 export type StudioMode = 'hide' | 'reveal'
 
@@ -35,6 +35,11 @@ const COPY: Record<StudioMode, { eyebrow: string; title: string; lede: string; d
 
 export function Studio({ mode }: { mode: StudioMode }) {
   const copy = COPY[mode]
+
+  // Pre-load the worker and WASM module on mount so the studio works offline after page load.
+  useEffect(() => {
+    void warm().catch(() => {})
+  }, [])
 
   return (
     <div className="mx-auto max-w-6xl px-5 pt-5 pb-16 sm:px-8 sm:pt-8 sm:pb-24">
@@ -66,7 +71,7 @@ function HideStudio() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [password, setPassword] = useState('')
-  const cap = useRun<Tagged<number>>()
+  const cap = useRun<Tagged<CapacityDetail>>()
   const job = useRun<Tagged<HideOutput>>()
   const diff = useRun<Tagged<Blob>>()
   /** The result the difference view is switched on for (so a new result starts with it off). */
@@ -84,7 +89,7 @@ function HideStudio() {
       return
     }
     const source = image.blob
-    runCapacity(async () => ({ value: await capacity(source), source }))
+    runCapacity(async () => ({ value: await capacityDetail(source), source }))
   }, [image, resetJob, resetDiff, resetCapacity, runCapacity])
 
   const current = image?.blob
@@ -102,15 +107,20 @@ function HideStudio() {
   const diffLoading = diffOn && diff.status === 'running'
   const diffError = diffOn && diff.status === 'error' ? (diff.error ?? null) : null
 
-  const chars = codePoints(message)
-  const bytes = utf8Bytes(message)
+  const capAssessment = capacityMax ? capacityState(message, capacityMax) : null
+  const chars = capAssessment ? capAssessment.chars : codePoints(message)
 
   let blocker: string | null = null
   if (!image) blocker = 'Choose a photo to start.'
   else if (measuring) blocker = 'Measuring the photo…'
   else if (capacityMax === null) blocker = 'Choose another photo.'
   else if (chars === 0) blocker = 'Write a message.'
-  else if (chars > capacityMax) blocker = `This image can hold at most ${capacityMax} characters.`
+  else if (capAssessment?.over) {
+    blocker =
+      capAssessment.chars > capacityMax.chars
+        ? `This image can hold at most ${capacityMax.chars} characters.`
+        : `This image can hold at most ${capacityMax.bytes} bytes.`
+  }
   else if (!password) blocker = 'Set a password.'
 
   const status =
@@ -204,8 +214,6 @@ function HideStudio() {
           onMessage={onMessage}
           password={password}
           onPassword={setPassword}
-          chars={chars}
-          bytes={bytes}
           capacity={capacityMax}
           measuring={measuring}
           blocker={blocker}

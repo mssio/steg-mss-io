@@ -45,6 +45,49 @@ export function meterState(used: number, max: number): MeterState {
   return 'ok'
 }
 
+export interface CapacityLimits {
+  chars: number
+  bytes: number
+}
+
+export interface CapacityAssessment {
+  chars: number
+  bytes: number
+  showBytes: boolean
+  charState: MeterState
+  byteState: MeterState
+  /** Whichever ratio (`chars / max.chars` or `bytes / max.bytes`) is higher. */
+  state: MeterState
+  /** Higher ratio as a 0..100 percentage. */
+  pct: number
+  /** True when `[...text].length > detail.chars || utf8Bytes(text) > detail.bytes`. */
+  over: boolean
+}
+
+const STATE_RANK: Record<MeterState, number> = { ok: 0, near: 1, over: 2 }
+
+/** Evaluates a message against both the character and UTF-8 byte limits. */
+export function capacityState(text: string, detail: CapacityLimits): CapacityAssessment {
+  const chars = codePoints(text)
+  const bytes = utf8Bytes(text)
+  const charState = meterState(chars, detail.chars)
+  const byteState = meterState(bytes, detail.bytes)
+  const state = STATE_RANK[byteState] > STATE_RANK[charState] ? byteState : charState
+  const charRatio = detail.chars > 0 ? chars / detail.chars : chars > 0 ? 1 : 0
+  const byteRatio = detail.bytes > 0 ? bytes / detail.bytes : bytes > 0 ? 1 : 0
+  const pct = Math.min(100, Math.max(charRatio, byteRatio) * 100)
+  return {
+    chars,
+    bytes,
+    showBytes: bytes > chars,
+    charState,
+    byteState,
+    state,
+    pct,
+    over: chars > detail.chars || bytes > detail.bytes,
+  }
+}
+
 /** The image format from its magic bytes, or null if it is neither PNG nor JPEG. */
 export function sniffFormat(head: Uint8Array): ImageFormat | null {
   const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]

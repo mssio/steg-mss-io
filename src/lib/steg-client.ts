@@ -1,4 +1,5 @@
 import type {
+  CapacityDetail,
   HideOutput,
   StegWorkerRequest,
   StegWorkerResponse,
@@ -33,7 +34,9 @@ export interface StegClient {
   hide(image: Blob, message: string, password: string): Promise<HideOutput>
   reveal(image: Blob, password: string): Promise<string>
   capacity(image: Blob): Promise<number>
+  capacityDetail(image: Blob): Promise<CapacityDetail>
   diffPreview(original: Blob, stego: Blob): Promise<Blob>
+  warm(): Promise<void>
 }
 
 export function createStegClient(spawn: () => WorkerLike): StegClient {
@@ -143,6 +146,13 @@ export function createStegClient(spawn: () => WorkerLike): StegClient {
       return (await request({ id: nextId++, op: 'capacity', image: buffer }, [buffer])) as number
     },
 
+    async capacityDetail(image: Blob): Promise<CapacityDetail> {
+      const buffer = await readBuffer(image, 'capacityDetail')
+      return (await request({ id: nextId++, op: 'capacityDetail', image: buffer }, [
+        buffer,
+      ])) as CapacityDetail
+    },
+
     async diffPreview(original: Blob, stego: Blob): Promise<Blob> {
       const [originalBuf, stegoBuf] = await Promise.all([
         readBuffer(original, 'diff'),
@@ -153,6 +163,10 @@ export function createStegClient(spawn: () => WorkerLike): StegClient {
         [originalBuf, stegoBuf],
       )) as ArrayBuffer
       return new Blob([png], { type: 'image/png' })
+    },
+
+    async warm(): Promise<void> {
+      await request({ id: nextId++, op: 'warm' }, [])
     },
   }
 }
@@ -173,6 +187,14 @@ export function capacity(image: Blob): Promise<number> {
   return defaultClient.capacity(image)
 }
 
+export function capacityDetail(image: Blob): Promise<CapacityDetail> {
+  return defaultClient.capacityDetail(image)
+}
+
 export function diffPreview(original: Blob, stego: Blob): Promise<Blob> {
   return defaultClient.diffPreview(original, stego)
+}
+
+export function warm(): Promise<void> {
+  return defaultClient.warm()
 }

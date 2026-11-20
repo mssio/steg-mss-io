@@ -141,7 +141,7 @@ export function HowItWorks() {
             what it can, then decrypts. If any byte is off, decryption refuses rather than show you garbage.
           </p>
           <p>
-            A wrong password and a photo with no message look exactly the same, on purpose. Either way you’ll see{' '}
+            A wrong password and a photo with no message look the same, on purpose. Either way you’ll see{' '}
             <span className="text-foreground">“No message found, or the password is wrong.”</span>
           </p>
           <p>

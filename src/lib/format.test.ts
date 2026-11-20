@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  capacityState,
   codePoints,
   formatBytes,
   meterState,
@@ -51,6 +52,92 @@ describe('meterState', () => {
     expect(meterState(371, 412)).toBe('near')
     expect(meterState(412, 412)).toBe('near')
     expect(meterState(413, 412)).toBe('over')
+  })
+})
+
+describe('capacityState', () => {
+  const sampleDetail = { chars: 500, bytes: 1117 }
+
+  test('ASCII text uses char ratio and hides byte readout', () => {
+    const ok = capacityState('a'.repeat(100), sampleDetail)
+    expect(ok).toMatchObject({
+      chars: 100,
+      bytes: 100,
+      showBytes: false,
+      charState: 'ok',
+      byteState: 'ok',
+      state: 'ok',
+      over: false,
+    })
+    expect(ok.pct).toBeCloseTo(20)
+
+    const near = capacityState('a'.repeat(450), sampleDetail)
+    expect(near).toMatchObject({ charState: 'near', byteState: 'ok', state: 'near', over: false })
+    expect(near.pct).toBeCloseTo(90)
+
+    const over = capacityState('a'.repeat(501), sampleDetail)
+    expect(over).toMatchObject({ charState: 'over', byteState: 'ok', state: 'over', over: true, pct: 100 })
+  })
+
+  test('multi-byte text within char cap but over byte cap is over and disables Hide', () => {
+    // 450 CJK chars = 450 code points (<= 500), 1350 UTF-8 bytes (> 1117).
+    const res = capacityState('漢'.repeat(450), sampleDetail)
+    expect(res).toMatchObject({
+      chars: 450,
+      bytes: 1350,
+      showBytes: true,
+      charState: 'near',
+      byteState: 'over',
+      state: 'over',
+      over: true,
+      pct: 100,
+    })
+  })
+
+  test('multi-byte text within both caps is allowed even when bytes exceed char cap', () => {
+    // 300 accented chars = 300 code points (<= 500), 600 UTF-8 bytes (> 500, <= 1117).
+    const res = capacityState('é'.repeat(300), sampleDetail)
+    expect(res).toMatchObject({
+      chars: 300,
+      bytes: 600,
+      showBytes: true,
+      charState: 'ok',
+      byteState: 'ok',
+      state: 'ok',
+      over: false,
+    })
+    expect(res.pct).toBeCloseTo(60)
+  })
+
+  test('uses whichever ratio is higher for meter state and percentage', () => {
+    // 340 CJK chars = 340/500 (68%, ok) and 1020/1117 (91.3%, near) -> overall near.
+    const res = capacityState('漢'.repeat(340), sampleDetail)
+    expect(res).toMatchObject({
+      chars: 340,
+      bytes: 1020,
+      showBytes: true,
+      charState: 'ok',
+      byteState: 'near',
+      state: 'near',
+      over: false,
+    })
+    expect(res.pct).toBeCloseTo((1020 / 1117) * 100)
+  })
+
+  test('handles small images where bytes equals chars (< 500)', () => {
+    const small = { chars: 80, bytes: 80 }
+    // 30 four-byte emoji = 30 chars (ok), 120 bytes (over).
+    const res = capacityState('😀'.repeat(30), small)
+    expect(res).toMatchObject({
+      chars: 30,
+      bytes: 120,
+      showBytes: true,
+      charState: 'ok',
+      byteState: 'over',
+      state: 'over',
+      over: true,
+      pct: 100,
+    })
   })
 })
 
