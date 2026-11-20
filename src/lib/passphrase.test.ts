@@ -11,9 +11,9 @@ describe('wordlist', () => {
 })
 
 describe('generatePassphrase', () => {
-  test('5 words from the list by default, joined by "-"', () => {
+  test('6 words from the list by default, joined by "-"', () => {
     const words = generatePassphrase().split('-')
-    expect(words).toHaveLength(5)
+    expect(words).toHaveLength(6)
     for (const w of words) expect(WORDLIST).toContain(w)
   })
   test('respects the word count', () => {
@@ -31,6 +31,11 @@ describe('strength', () => {
   test('short passwords are weak', () => {
     expect(strength('abc')).toBe('weak')
     expect(strength('password')).toBe('weak')
+  })
+  test('repeated or low-variety input is never strong', () => {
+    expect(strength('aaaaaaaaaaaaaaaaa')).not.toBe('strong')
+    expect(strength('abcabcabcabcabcabc')).not.toBe('strong')
+    expect(strength('a'.repeat(200))).not.toBe('strong')
   })
   test('medium passwords are fair', () => {
     expect(strength('Tr0ub4dor&3')).toBe('fair')

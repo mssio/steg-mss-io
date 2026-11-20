@@ -101,7 +101,7 @@ export function PasswordField({
             </span>
           </>
         ) : (
-          <span>Used exactly as typed. Generate one for five random words.</span>
+          <span>Used exactly as typed. Generate one for six random words.</span>
         )}
       </div>
     </div>

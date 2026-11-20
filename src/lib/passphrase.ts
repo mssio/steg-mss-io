@@ -13,13 +13,17 @@ function randomIndex(n: number): number {
 }
 
 /** `words` random words from the built-in list, joined by `-`. */
-export function generatePassphrase(words = 5): string {
+export function generatePassphrase(words = 6): string {
   return Array.from({ length: words }, () => WORDLIST[randomIndex(WORDLIST.length)]).join('-')
 }
 
 /**
- * A deliberately simple hint: estimated bits = length × log2(pool size), where
- * the pool grows with each character class used. Not a cracking estimate.
+ * A deliberately simple hint: estimated bits = effective length × log2(pool
+ * size), where the pool grows with each character class used. The effective
+ * length is capped at 3 × the number of distinct characters, so repeated or
+ * low-variety input ("aaaa…", "abcabc…") never rates "strong". Not a cracking
+ * estimate. (A generated 6-word passphrase has log2(2244) × 6 ≈ 66.8 bits of
+ * real entropy.)
  */
 export function strength(pw: string): Strength {
   const chars = [...pw]
@@ -29,7 +33,8 @@ export function strength(pw: string): Strength {
   if (/[0-9]/.test(pw)) pool += 10
   if (/[^a-zA-Z0-9\u0080-\u{10FFFF}]/u.test(pw)) pool += 33
   if (/[\u0080-\u{10FFFF}]/u.test(pw)) pool += 100
-  const bits = chars.length * Math.log2(Math.max(pool, 1))
+  const effective = Math.min(chars.length, new Set(chars).size * 3)
+  const bits = effective * Math.log2(Math.max(pool, 1))
   if (bits >= 80) return 'strong'
   if (bits >= 45) return 'fair'
   return 'weak'
