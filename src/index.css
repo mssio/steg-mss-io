@@ -230,6 +230,75 @@
   }
 }
 
+@layer components {
+  /*
+   * The hero is a photographic print: it stays dark in both themes, so its
+   * text has its own fixed tokens. Contrast is held by the scrim, not the photo.
+   */
+  .hero {
+    --hero-fg: #ece8df;
+    --hero-muted: #bdb8ad;
+    --hero-ink: #0d0e0c;
+    color: var(--hero-fg);
+    background-color: var(--hero-ink);
+  }
+
+  .hero-scrim {
+    background:
+      linear-gradient(to top, var(--hero-ink) 8%, rgb(13 14 12 / 0.82) 45%, rgb(13 14 12 / 0.25) 100%);
+  }
+
+  @media (min-width: 64rem) {
+    .hero-scrim {
+      background:
+        linear-gradient(to left, var(--hero-ink) 6%, rgb(13 14 12 / 0.78) 40%, rgb(13 14 12 / 0.1) 75%),
+        linear-gradient(to top, rgb(13 14 12 / 0.55), transparent 45%);
+    }
+  }
+
+  /* Enlarger-easel crop marks on the four corners of a frame. */
+  .crop-marks {
+    --mark: 14px;
+    --mark-color: var(--border-strong);
+    background:
+      linear-gradient(var(--mark-color), var(--mark-color)) top left / var(--mark) 1px,
+      linear-gradient(var(--mark-color), var(--mark-color)) top left / 1px var(--mark),
+      linear-gradient(var(--mark-color), var(--mark-color)) top right / var(--mark) 1px,
+      linear-gradient(var(--mark-color), var(--mark-color)) top right / 1px var(--mark),
+      linear-gradient(var(--mark-color), var(--mark-color)) bottom left / var(--mark) 1px,
+      linear-gradient(var(--mark-color), var(--mark-color)) bottom left / 1px var(--mark),
+      linear-gradient(var(--mark-color), var(--mark-color)) bottom right / var(--mark) 1px,
+      linear-gradient(var(--mark-color), var(--mark-color)) bottom right / 1px var(--mark);
+    background-repeat: no-repeat;
+  }
+
+  /* A safelight sweep across the photo while the core works. */
+  .scanline {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 28%;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      color-mix(in srgb, var(--primary) 16%, transparent) 80%,
+      color-mix(in srgb, var(--primary) 45%, transparent)
+    );
+    border-bottom: 1px solid var(--primary);
+    box-shadow: 0 6px 18px -4px color-mix(in srgb, var(--primary) 55%, transparent);
+    animation: scanline 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+
+  @keyframes scanline {
+    from {
+      transform: translateY(-100%);
+    }
+    to {
+      transform: translateY(360%);
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
