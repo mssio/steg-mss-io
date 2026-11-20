@@ -1,76 +1,168 @@
-import type { HideOutput } from './steg-types'
+import type {
+  HideOutput,
+  StegWorkerRequest,
+  StegWorkerResponse,
+  StegWorkerResult,
+  WorkerHideResult,
+} from './steg-types'
 
-/*
- * STUB (Task 7). Task 9 replaces the bodies with calls into the WASM worker
- * and keeps these exact signatures. Rejections are `Error`s whose message is
- * already user-facing.
- */
+const REVEAL_FALLBACK = 'No message found, or the password is wrong.'
+const GENERIC_FALLBACK = 'Something went wrong. Please try again.'
 
-const STUB_DELAY_MS = 800
+type Op = StegWorkerRequest['op']
 
-const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
-
-export async function hide(image: Blob, message: string, password: string): Promise<HideOutput> {
-  await wait(STUB_DELAY_MS)
-  if (!message) throw new Error('Enter a message.')
-  if (!password) throw new Error('Enter a password.')
-  const mime = image.type === 'image/png' ? 'image/png' : 'image/jpeg'
-  return { blob: image, mime, blocksUsed: 2_478, blocksTotal: 49_152 }
+function fallbackError(op: Op): string {
+  return op === 'reveal' ? REVEAL_FALLBACK : GENERIC_FALLBACK
 }
 
-export async function reveal(_image: Blob, password: string): Promise<string> {
-  await wait(STUB_DELAY_MS)
-  if (!password) throw new Error('Enter a password.')
-  // Lets the error state be exercised before the real core is wired in.
-  if (password === 'wrong') throw new Error('No message found, or the password is wrong.')
-  return 'Meet me at the old lighthouse at six. Bring the blue notebook, and come alone.'
+export interface WorkerLike {
+  postMessage(message: StegWorkerRequest, transfer: Transferable[]): void
+  addEventListener(type: 'message', listener: (event: MessageEvent<StegWorkerResponse>) => void): void
+  addEventListener(type: 'error', listener: (event: Event) => void): void
+  addEventListener(type: 'messageerror', listener: (event: Event) => void): void
+  terminate(): void
 }
 
-export async function capacity(_image: Blob): Promise<number> {
-  await wait(STUB_DELAY_MS)
-  return 412
+interface PendingCall {
+  op: Op
+  resolve: (value: StegWorkerResult) => void
+  reject: (reason: Error) => void
 }
 
-/**
- * Stand-in for the core's `|original − stego| × 8` image: near-black with a
- * faint speckle on scattered 8×8 blocks, so the difference view looks like
- * the real thing in reviews.
- */
-export async function diffPreview(original: Blob, _stego: Blob): Promise<Blob> {
-  await wait(STUB_DELAY_MS)
-  const bitmap = await createImageBitmap(original)
-  const { width, height } = bitmap
-  bitmap.close()
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return original
-  const img = ctx.createImageData(width, height)
-  const px = img.data
-  let seed = 0x2545f491
-  const rand = () => {
-    seed ^= seed << 13
-    seed ^= seed >>> 17
-    seed ^= seed << 5
-    return (seed >>> 0) / 0x1_0000_0000
-  }
-  for (let i = 3; i < px.length; i += 4) px[i] = 255
-  for (let by = 0; by + 8 <= height; by += 8) {
-    for (let bx = 0; bx + 8 <= width; bx += 8) {
-      if (rand() > 0.42) continue
-      const level = 40 + rand() * 120
-      for (let y = 2; y < 6; y++) {
-        for (let x = 2; x < 6; x++) {
-          const o = ((by + y) * width + bx + x) * 4
-          const v = level * (0.6 + rand() * 0.4)
-          px[o] = v
-          px[o + 1] = v
-          px[o + 2] = v
-        }
+export interface StegClient {
+  hide(image: Blob, message: string, password: string): Promise<HideOutput>
+  reveal(image: Blob, password: string): Promise<string>
+  capacity(image: Blob): Promise<number>
+  diffPreview(original: Blob, stego: Blob): Promise<Blob>
+}
+
+export function createStegClient(spawn: () => WorkerLike): StegClient {
+  let worker: WorkerLike | null = null
+  let nextId = 1
+  const pending = new Map<number, PendingCall>()
+
+  function failAllAndReset() {
+    const active = worker
+    worker = null
+    if (active) {
+      try {
+        active.terminate()
+      } catch {
+        // Ignore cleanup errors on an already-dead worker.
       }
     }
+    const entries = [...pending.values()]
+    pending.clear()
+    for (const entry of entries) {
+      entry.reject(new Error(fallbackError(entry.op)))
+    }
   }
-  ctx.putImageData(img, 0, 0)
-  return await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b ?? original), 'image/png'))
+
+  function getWorker(): WorkerLike {
+    if (worker) return worker
+    const created = spawn()
+    created.addEventListener('message', (event) => {
+      const res = event.data
+      if (!res || typeof res.id !== 'number') return
+      const entry = pending.get(res.id)
+      if (!entry) return
+      pending.delete(res.id)
+      if (res.ok) {
+        entry.resolve(res.result)
+      } else {
+        entry.reject(new Error(res.error || fallbackError(entry.op)))
+      }
+    })
+    created.addEventListener('error', (event) => {
+      event.preventDefault?.()
+      failAllAndReset()
+    })
+    created.addEventListener('messageerror', () => {
+      failAllAndReset()
+    })
+    worker = created
+    return created
+  }
+
+  function request(req: StegWorkerRequest, transfer: Transferable[]): Promise<StegWorkerResult> {
+    return new Promise((resolve, reject) => {
+      pending.set(req.id, { op: req.op, resolve, reject })
+      try {
+        getWorker().postMessage(req, transfer)
+      } catch {
+        pending.delete(req.id)
+        failAllAndReset()
+        reject(new Error(fallbackError(req.op)))
+      }
+    })
+  }
+
+  async function readBuffer(blob: Blob, op: Op): Promise<ArrayBuffer> {
+    try {
+      return await blob.arrayBuffer()
+    } catch {
+      throw new Error(fallbackError(op))
+    }
+  }
+
+  return {
+    async hide(image: Blob, message: string, password: string): Promise<HideOutput> {
+      const buffer = await readBuffer(image, 'hide')
+      const res = (await request(
+        { id: nextId++, op: 'hide', image: buffer, message, password },
+        [buffer],
+      )) as WorkerHideResult
+      return {
+        blob: new Blob([res.bytes], { type: res.mime }),
+        mime: res.mime,
+        blocksUsed: res.blocksUsed,
+        blocksTotal: res.blocksTotal,
+      }
+    },
+
+    async reveal(image: Blob, password: string): Promise<string> {
+      const buffer = await readBuffer(image, 'reveal')
+      return (await request(
+        { id: nextId++, op: 'reveal', image: buffer, password },
+        [buffer],
+      )) as string
+    },
+
+    async capacity(image: Blob): Promise<number> {
+      const buffer = await readBuffer(image, 'capacity')
+      return (await request({ id: nextId++, op: 'capacity', image: buffer }, [buffer])) as number
+    },
+
+    async diffPreview(original: Blob, stego: Blob): Promise<Blob> {
+      const [originalBuf, stegoBuf] = await Promise.all([
+        readBuffer(original, 'diff'),
+        readBuffer(stego, 'diff'),
+      ])
+      const png = (await request(
+        { id: nextId++, op: 'diff', original: originalBuf, stego: stegoBuf },
+        [originalBuf, stegoBuf],
+      )) as ArrayBuffer
+      return new Blob([png], { type: 'image/png' })
+    },
+  }
+}
+
+const defaultClient = createStegClient(
+  () => new Worker(new URL('../workers/steg.worker.ts', import.meta.url), { type: 'module' }),
+)
+
+export function hide(image: Blob, message: string, password: string): Promise<HideOutput> {
+  return defaultClient.hide(image, message, password)
+}
+
+export function reveal(image: Blob, password: string): Promise<string> {
+  return defaultClient.reveal(image, password)
+}
+
+export function capacity(image: Blob): Promise<number> {
+  return defaultClient.capacity(image)
+}
+
+export function diffPreview(original: Blob, stego: Blob): Promise<Blob> {
+  return defaultClient.diffPreview(original, stego)
 }
