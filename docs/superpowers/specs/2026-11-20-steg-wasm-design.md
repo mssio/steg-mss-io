@@ -66,7 +66,10 @@ src/
   wasm/               # generated, git-ignored
 scripts/og.ts
 public/
-index.html, vite.config.ts, Dockerfile, nginx.conf, README.md, CLAUDE.md
+deploy/security-headers.ts   # single source of the response headers
+public/_headers              # Cloudflare (Workers assets / Pages) and Netlify
+wrangler.jsonc, vercel.json
+index.html, vite.config.ts, README.md, CLAUDE.md
 ```
 
 ## 5. Approaches considered
@@ -198,23 +201,30 @@ diff_preview(original: &[u8], stego: &[u8]) -> Result<Vec<u8>, JsError>
 - `scripts/og.ts` (`@resvg/resvg-js`): composite logo + title "steg.mss.io: hide a message inside a photo" onto `og-art.png` (empty dark left side) → `public/og-image.png`. Fonts for the OG render are loaded from the fontsource packages' files. Open Graph + Twitter card meta tags in `index.html` with absolute URLs on `https://steg.mss.io`.
 
 ## 10. Build and deploy
-- Scripts: `wasm`, `dev` (runs `wasm` if `src/wasm` is missing, then Vite), `build` (`wasm` → `tsc -b` → `vite build`), `test` (`cargo test --manifest-path crates/steg-core/Cargo.toml`), `og`, `icons`.
-- Multi-stage Dockerfile: Rust + wasm-pack → Bun + Vite → `nginx:alpine` serving `dist/`. README documents `docker buildx build --platform linux/amd64 -t registry.mss.io/steg-mss-io:<version> --push .`.
-- `nginx.conf`: SPA fallback to `index.html`; `application/wasm`; `Cache-Control: public, max-age=31536000, immutable` for `/assets/`; `no-cache` for `index.html`; headers:
-  - `Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'` (plus `worker-src 'self'` implied by `default-src`)
+
+The output is a plain static `dist/`. The host is not decided yet (likely Vercel or Cloudflare Workers static assets), so the site stays host-neutral: no Docker, no nginx, no server. (Change from the brief, decided by the owner on 2026-11-20.)
+
+- Scripts: `wasm`, `dev` (runs `wasm` if `src/wasm` is missing, then Vite), `build` (`wasm` → `tsc -b` → `vite build`), `preview` (`vite preview` with production headers), `test` (`cargo test --manifest-path crates/steg-core/Cargo.toml` and `bun test src`), `og`, `icons`, `deploy:cf` (`wrangler deploy`, optional).
+- **Headers, one source:** `deploy/security-headers.ts` exports the header map below. It is used by `vite.config.ts` for `preview.headers` (so the CSP is exercised locally before any deploy). `public/_headers` and `vercel.json` hold literal copies, and a `bun test` fails if either drifts from the source.
+  - `Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`
   - `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`.
+- **Cloudflare:** `public/_headers` (`/*` rule with the headers; `/assets/*` with `Cache-Control: public, max-age=31536000, immutable`) is copied into `dist/`. `wrangler.jsonc`: assets-only Worker, `assets.directory = "./dist"`, `assets.not_found_handling = "single-page-application"`, no Worker script (so `_headers` applies to every response).
+- **Vercel:** `vercel.json` with `rewrites` `/(.*)` → `/index.html` (filesystem first), the same headers on `/(.*)`, immutable cache on `/assets/(.*)`. Vercel's build image has no Rust toolchain, so the README documents building locally or in CI and deploying the prebuilt `dist/`.
+- `.wasm` gets `application/wasm` from both hosts and from Vite by default; verify it in preview.
+- SPA deep links (`/reveal`, `/how-it-works`) must return `index.html` with 200 on both hosts.
 
 ## 11. Milestones (commit after each)
 1. Rust core + native tests + encoder evaluation (EVAL.md).
 2. Vite + Tailwind + shadcn scaffold, theme, fonts, layout, Studio and How it works with stub functions → screenshots, then **stop for the owner's review**.
 3. Worker + WASM wired; manual round trip in the browser incl. compare slider and difference view.
 4. Logo, favicons, OG script, meta tags; polish pass on a11y, mobile, reduced motion.
-5. Dockerfile, nginx config, README.md, CLAUDE.md.
+5. Host-neutral deploy config (headers source, `_headers`, `wrangler.jsonc`, `vercel.json`, preview headers, drift test), README.md, CLAUDE.md.
 
 ## 12. Done when
 - `bun run build` produces a static `dist/` with no server code.
 - `cargo test` passes, including recompression and EXIF tests; EVAL.md shows the chosen encoder with zero errors.
 - In the browser, a message hidden in a phone JPEG reveals after the download is re-saved as JPEG q85.
+- `bun run preview` serves the production headers, deep links work, and a hide/reveal round trip runs with no CSP errors.
 - The network tab shows no requests with image/message/password data and none to third-party origins.
 - Both themes look intentional at 360px and 1440px; screenshots in the final summary.
 
@@ -227,4 +237,5 @@ diff_preview(original: &[u8], stego: &[u8]) -> Result<Vec<u8>, JsError>
 - Fisher–Yates hand-written over `ChaCha20Rng` with a pinned crate version, for stable orders.
 - Platform table phrased as expected behaviour; resizing called out as a limit.
 - Encoder gate: zero reveal failures on samples + core fixtures at single q92/85/75; chained recompression and stress fixtures are reported only.
+- No Docker/nginx; host-neutral static deploy with configs for Cloudflare and Vercel (owner's decision).
 - Theme set before first paint by an external `/theme-init.js` (CSP forbids inline scripts).
