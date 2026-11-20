@@ -154,7 +154,7 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
   }
 
   html {
@@ -164,6 +164,13 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "ss01", "cv11";
+  }
+
+  /* Below lg, keep keyboard-focused controls from scrolling behind the sticky bar. */
+  @media (max-width: 63.99rem) {
+    html {
+      scroll-padding-bottom: 6rem;
+    }
   }
 
   body {
@@ -239,6 +246,7 @@
     --hero-fg: #ece8df;
     --hero-muted: #bdb8ad;
     --hero-ink: #0d0e0c;
+    --ring: #ffb547;
     color: var(--hero-fg);
     background-color: var(--hero-ink);
   }
@@ -322,8 +330,10 @@
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
 

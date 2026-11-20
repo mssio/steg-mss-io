@@ -52,7 +52,7 @@ export function HidePanel({
           rows={5}
           placeholder="Write the message to hide…"
           aria-describedby="hide-message-meter"
-          className="block min-h-32 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2.5 text-[0.9375rem] leading-relaxed transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring dark:bg-input/15"
+          className="block min-h-32 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2.5 text-[0.9375rem] leading-relaxed transition-colors placeholder:text-muted-foreground focus-visible:border-ring dark:bg-input/15"
         />
         <div id="hide-message-meter">
           <CapacityMeter chars={chars} bytes={bytes} max={capacity} pending={measuring} />

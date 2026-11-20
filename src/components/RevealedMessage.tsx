@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CheckIcon, CopyIcon, EraserIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { codePoints } from '@/lib/format'
@@ -35,15 +35,31 @@ function Typewriter({ text }: { text: string }) {
 
 /** The revealed message (or the empty frame it develops into), with Copy and Clear. */
 export function RevealedMessage({ message, onClear }: { message: string | null; onClear: () => void }) {
-  const [copied, setCopied] = useState(false)
+  const [copiedFor, setCopiedFor] = useState<string | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const copied = message !== null && copiedFor === message
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+    }
+  }, [message])
 
   async function copy() {
-    if (message === null) return
+    const current = message
+    if (current === null) return
     try {
-      await navigator.clipboard.writeText(message)
-      setCopied(true)
+      await navigator.clipboard.writeText(current)
+      if (timerRef.current !== null) clearTimeout(timerRef.current)
+      setCopiedFor(current)
       toast.success('Message copied')
-      setTimeout(() => setCopied(false), 1600)
+      timerRef.current = setTimeout(() => {
+        setCopiedFor((prev) => (prev === current ? null : prev))
+        timerRef.current = null
+      }, 1600)
     } catch {
       toast('Couldn’t copy', { description: 'Select the text and copy it instead.' })
     }

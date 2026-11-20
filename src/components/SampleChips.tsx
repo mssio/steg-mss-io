@@ -59,7 +59,7 @@ export function SampleChips({
                   className={cn(
                     'size-1.5 rounded-full transition-colors',
                     active ? 'bg-primary' : 'bg-muted-foreground/50',
-                    busy === file && 'animate-pulse bg-primary',
+                    busy === file && 'animate-pulse bg-primary motion-reduce:animate-none',
                   )}
                 />
                 {label}

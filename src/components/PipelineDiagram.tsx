@@ -44,7 +44,7 @@ function CipherPanel() {
       <Frame label="AES-256-GCM" />
       <g className={`${mono} fill-foreground`} fontSize="13.5" letterSpacing="0.04em">
         {HEX.map((line, i) => (
-          <text key={line} x="16" y={62 + i * 24} opacity={1 - i * 0.18}>
+          <text key={line} x="16" y={62 + i * 24} opacity={1 - i * 0.12}>
             {line}
           </text>
         ))}
@@ -197,20 +197,22 @@ function Row({ id }: { id: string }) {
     <svg viewBox={`0 0 ${4 * W + 3 * gap} 214`} role="img" aria-labelledby={`${id}-t ${id}-d`} className="h-auto w-full">
       <title id={`${id}-t`}>{TITLE}</title>
       <desc id={`${id}-d`}>{DESC}</desc>
-      {PANELS.map(({ Panel, caption }, i) => {
-        const x = i * (W + gap)
-        return (
-          <g key={caption}>
-            <g transform={`translate(${x} 0)`}>
-              <Panel />
+      <g aria-hidden="true">
+        {PANELS.map(({ Panel, caption }, i) => {
+          const x = i * (W + gap)
+          return (
+            <g key={caption}>
+              <g transform={`translate(${x} 0)`}>
+                <Panel />
+              </g>
+              <Caption x={x + W / 2} y={H + 34} n={i + 1} text={caption} />
+              {i < 3 ? (
+                <Arrow x1={x + W + 10} y1={H / 2} x2={x + W + gap - 10} y2={H / 2} label={VERBS[i]} labelAt={[x + W + gap / 2, H / 2 - 10]} />
+              ) : null}
             </g>
-            <Caption x={x + W / 2} y={H + 34} n={i + 1} text={caption} />
-            {i < 3 ? (
-              <Arrow x1={x + W + 10} y1={H / 2} x2={x + W + gap - 10} y2={H / 2} label={VERBS[i]} labelAt={[x + W + gap / 2, H / 2 - 10]} />
-            ) : null}
-          </g>
-        )
-      })}
+          )
+        })}
+      </g>
     </svg>
   )
 }
@@ -232,20 +234,22 @@ function Snake({ id }: { id: string }) {
     <svg viewBox={`0 0 320 ${rowH + h + 30}`} role="img" aria-labelledby={`${id}-t ${id}-d`} className="h-auto w-full">
       <title id={`${id}-t`}>{TITLE}</title>
       <desc id={`${id}-d`}>{DESC}</desc>
-      {PANELS.map(({ Panel, caption }, i) => {
-        const [x, y] = at[i]
-        return (
-          <g key={caption}>
-            <g transform={`translate(${x} ${y}) scale(${s})`}>
-              <Panel />
+      <g aria-hidden="true">
+        {PANELS.map(({ Panel, caption }, i) => {
+          const [x, y] = at[i]
+          return (
+            <g key={caption}>
+              <g transform={`translate(${x} ${y}) scale(${s})`}>
+                <Panel />
+              </g>
+              <Caption x={x + w / 2} y={y + h + 22} n={i + 1} text={caption} />
             </g>
-            <Caption x={x + w / 2} y={y + h + 22} n={i + 1} text={caption} />
-          </g>
-        )
-      })}
-      <Arrow x1={w + 6} y1={h / 2} x2={w + gapX - 6} y2={h / 2} />
-      <Arrow x1={w + gapX + w / 2} y1={h + 32} x2={w + gapX + w / 2} y2={rowH - 6} />
-      <Arrow x1={w + gapX - 6} y1={rowH + h / 2} x2={w + 6} y2={rowH + h / 2} />
+          )
+        })}
+        <Arrow x1={w + 6} y1={h / 2} x2={w + gapX - 6} y2={h / 2} />
+        <Arrow x1={w + gapX + w / 2} y1={h + 32} x2={w + gapX + w / 2} y2={rowH - 6} />
+        <Arrow x1={w + gapX - 6} y1={rowH + h / 2} x2={w + 6} y2={rowH + h / 2} />
+      </g>
     </svg>
   )
 }

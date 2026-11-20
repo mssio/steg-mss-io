@@ -72,7 +72,7 @@ export function PasswordField({
             spellCheck={false}
             aria-describedby={`${id}-hint`}
             placeholder={generator ? 'Something only the recipient knows' : 'The password it was hidden with'}
-            className="h-11 w-full rounded-lg border border-input bg-transparent pr-11 pl-3 font-mono text-sm transition-colors outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring disabled:opacity-50 dark:bg-input/15"
+            className="h-11 w-full rounded-lg border border-input bg-transparent pr-11 pl-3 font-mono text-sm transition-colors placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring disabled:opacity-50 dark:bg-input/15"
           />
           <button
             type="button"

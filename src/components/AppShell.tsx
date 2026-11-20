@@ -109,7 +109,7 @@ export function AppShell() {
         </div>
       </footer>
 
-      <Toaster position="bottom-center" />
+      <Toaster position="bottom-center" mobileOffset={{ bottom: 88 }} />
       <ScrollRestoration />
       <div aria-hidden="true" className="grain" />
     </div>

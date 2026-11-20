@@ -89,11 +89,17 @@ export function CompareSlider({
           style={{ clipPath: `inset(0 0 0 ${position}%)` }}
         />
 
-        <span className="readout pointer-events-none absolute top-2 left-2 rounded-full bg-background/80 px-2.5 py-1 text-foreground backdrop-blur-sm sm:top-3 sm:left-3">
+        <span
+          aria-hidden="true"
+          className="readout pointer-events-none absolute top-2 left-2 rounded-full bg-background/80 px-2.5 py-1 text-foreground backdrop-blur-sm sm:top-3 sm:left-3"
+        >
           {beforeLabel}
         </span>
-        <span className="readout pointer-events-none absolute top-2 right-2 inline-flex items-center gap-1.5 rounded-full bg-background/80 px-2.5 py-1 text-primary backdrop-blur-sm sm:top-3 sm:right-3">
-          <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
+        <span
+          aria-hidden="true"
+          className="readout pointer-events-none absolute top-2 right-2 inline-flex items-center gap-1.5 rounded-full bg-background/80 px-2.5 py-1 text-primary backdrop-blur-sm sm:top-3 sm:right-3"
+        >
+          <span className="size-1.5 rounded-full bg-primary" />
           {afterLabel}
         </span>
 

@@ -53,7 +53,6 @@ export function PrimaryAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-disabled={disabled}
       className={cn(
         'group inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-lg bg-primary px-5 text-[0.9375rem] font-medium text-primary-foreground transition-[background-color,opacity,transform] duration-200',
         'hover:bg-primary/90 active:translate-y-px',

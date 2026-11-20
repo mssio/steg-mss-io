@@ -76,7 +76,7 @@ export function Dropzone({
         {...dropProps}
         aria-describedby="dropzone-hint"
         className={cn(
-          'group absolute inset-0 flex flex-col items-center justify-center gap-5 rounded-[inherit] px-6 text-center transition-colors duration-200',
+          'group absolute inset-0 flex flex-col items-center justify-center gap-5 rounded-[inherit] px-6 text-center transition-colors duration-200 focus-visible:-outline-offset-2',
           'hover:bg-[var(--safelight)]',
           dragging && 'bg-[var(--safelight)] ring-2 ring-primary ring-inset',
         )}
