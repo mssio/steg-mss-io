@@ -35,7 +35,7 @@ export function AppShell() {
             className="-mx-1.5 flex items-center gap-2.5 rounded-md px-1.5 py-1"
             aria-label="steg.mss.io home"
           >
-            <Mark className="size-[1.375rem]" />
+            <Mark className="size-6" />
             <span className="flex items-baseline">
               <span className="font-display text-[1.625rem] leading-none tracking-tight">
                 steg

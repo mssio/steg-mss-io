@@ -1,45 +1,33 @@
 import { cn } from '@/lib/utils'
 
 /**
- * Placeholder mark until the real logo lands (Task 10): a 3×3 grid of
- * pixels, one lit in safelight amber. It is the "block" the message hides in.
+ * Brand mark (matches public/logo.svg): geometric eye/aperture whose iris is a
+ * 3×3 grid of squares with a single safelight-amber catchlight square.
  */
 export function Mark({ className }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 20 20"
+      viewBox="0 0 32 32"
+      fill="none"
       aria-hidden="true"
       focusable="false"
       className={cn('shrink-0', className)}
     >
-      <rect
-        x="0.75"
-        y="0.75"
-        width="18.5"
-        height="18.5"
-        rx="4"
-        fill="none"
+      <path
+        d="M2 16A14.5 14.5 0 0 1 30 16A14.5 14.5 0 0 1 2 16Z"
         stroke="currentColor"
-        strokeOpacity="0.35"
-        strokeWidth="1.5"
+        strokeWidth="2"
+        strokeLinejoin="round"
       />
-      {[0, 1, 2].flatMap((row) =>
-        [0, 1, 2].map((col) => {
-          const lit = row === 1 && col === 2
-          return (
-            <rect
-              key={`${row}-${col}`}
-              x={4.5 + col * 4}
-              y={4.5 + row * 4}
-              width="3"
-              height="3"
-              rx="0.6"
-              className={lit ? 'fill-primary' : 'fill-current'}
-              fillOpacity={lit ? 1 : 0.6}
-            />
-          )
-        }),
-      )}
+      <rect x="9.5" y="9.5" width="3" height="3" rx="0.5" fill="currentColor" />
+      <rect x="14.5" y="9.5" width="3" height="3" rx="0.5" fill="currentColor" />
+      <rect x="19.5" y="9.5" width="3" height="3" rx="0.5" className="fill-primary" />
+      <rect x="9.5" y="14.5" width="3" height="3" rx="0.5" fill="currentColor" />
+      <rect x="14.5" y="14.5" width="3" height="3" rx="0.5" fill="currentColor" />
+      <rect x="19.5" y="14.5" width="3" height="3" rx="0.5" fill="currentColor" />
+      <rect x="9.5" y="19.5" width="3" height="3" rx="0.5" fill="currentColor" />
+      <rect x="14.5" y="19.5" width="3" height="3" rx="0.5" fill="currentColor" />
+      <rect x="19.5" y="19.5" width="3" height="3" rx="0.5" fill="currentColor" />
     </svg>
   )
 }
