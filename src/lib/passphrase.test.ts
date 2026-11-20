@@ -37,6 +37,12 @@ describe('strength', () => {
     expect(strength('abcabcabcabcabcabc')).not.toBe('strong')
     expect(strength('a'.repeat(200))).not.toBe('strong')
   })
+  test('periodic input is never stronger than one period', () => {
+    expect(strength('abcdefghijabcdefghij')).not.toBe('strong')
+    expect(strength('abcdefghi'.repeat(4))).not.toBe('strong')
+    const rank = { weak: 0, fair: 1, strong: 2 } as const
+    expect(rank[strength('Tr0ub4dor&3Tr0ub4dor&3')]).toBeLessThanOrEqual(rank[strength('Tr0ub4dor&3')])
+  })
   test('medium passwords are fair', () => {
     expect(strength('Tr0ub4dor&3')).toBe('fair')
   })
