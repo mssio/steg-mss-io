@@ -200,13 +200,26 @@ fn reveal_rgb(rgb: &RgbImage, password: &str) -> Option<String> {
     String::from_utf8(pt).ok()
 }
 
-pub fn capacity_core(image: &[u8]) -> Result<u32, StegError> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Capacity {
+    pub chars: u32,
+    pub bytes: u32,
+}
+
+pub fn capacity_detail_core(image: &[u8]) -> Result<Capacity, StegError> {
     let dec = decode(image, true)?;
     let m = max_message_bytes(Grid::from_dims(dec.rgb.width(), dec.rgb.height()).total());
     if m < 1 {
         return Err(StegError::TooSmall);
     }
-    Ok(m.min(MAX_CHARS as i64) as u32)
+    Ok(Capacity {
+        chars: m.min(MAX_CHARS as i64) as u32,
+        bytes: m as u32,
+    })
+}
+
+pub fn capacity_core(image: &[u8]) -> Result<u32, StegError> {
+    Ok(capacity_detail_core(image)?.chars)
 }
 
 pub fn diff_preview_core(original: &[u8], stego: &[u8]) -> Result<Vec<u8>, StegError> {

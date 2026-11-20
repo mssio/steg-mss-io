@@ -182,3 +182,135 @@ fn diff_preview_is_png() {
     let other = png_bytes(&photo(100, 100));
     assert_eq!(diff_preview_core(&img, &other).unwrap_err(), StegError::NotFound);
 }
+
+#[test]
+fn capacity_detail_matches_capacity_and_max_message_bytes() {
+    let s = sample("street");
+    let d = decode(&s, true).unwrap().rgb;
+    let total = ((d.width() / 8) * (d.height() / 8)) as usize;
+    let m = max_message_bytes(total);
+    let t = Instant::now();
+    let detail = capacity_detail_core(&s).unwrap();
+    assert!(t.elapsed().as_millis() < 200);
+    assert_eq!(detail.chars, capacity_core(&s).unwrap());
+    assert_eq!(detail.bytes as i64, m);
+    assert_eq!(detail.chars as i64, m.min(500));
+    assert_eq!(
+        capacity_detail_core(&png_bytes(&flat(64, 64, [1, 2, 3]))).unwrap_err(),
+        StegError::TooSmall
+    );
+}
+
+#[test]
+fn error_display_strings() {
+    let cases = [
+        (StegError::NotFound, "No message found, or the password is wrong."),
+        (StegError::TooLarge, "Image is too large (max 40 megapixels)."),
+        (StegError::Unsupported, "Only PNG and JPEG images are supported."),
+        (StegError::TooSmall, "This image is too small to hold a message."),
+        (StegError::TooLong(123), "This image can hold at most 123 characters."),
+        (StegError::EmptyMessage, "Enter a message."),
+        (StegError::EmptyPassword, "Enter a password."),
+    ];
+    for (err, expected) in &cases {
+        match err {
+            StegError::NotFound
+            | StegError::TooLarge
+            | StegError::Unsupported
+            | StegError::TooSmall
+            | StegError::TooLong(_)
+            | StegError::EmptyMessage
+            | StegError::EmptyPassword => {}
+        }
+        assert_eq!(err.to_string(), *expected);
+    }
+}
+
+fn derive_order_seed(password: &str, salt: &[u8; 16]) -> [u8; 32] {
+    let mut master = [0u8; 32];
+    pbkdf2::pbkdf2_hmac::<sha2::Sha256>(password.as_bytes(), salt, 600_000, &mut master);
+    let hk = hkdf::Hkdf::<sha2::Sha256>::new(None, &master);
+    let mut seed = [0u8; 32];
+    hk.expand(b"steg-mss-io/v1/order", &mut seed).unwrap();
+    seed
+}
+
+#[test]
+fn hostile_reveal_between_714_and_797_blocks() {
+    // 714 = 34x21 blocks, 784 = 28x28 blocks, 797 = 797x1 blocks.
+    for (w, h) in [(272u32, 168u32), (224, 224), (6376, 8)] {
+        let total = steg_core::blocks::Grid::from_dims(w, h).total();
+        assert!((714..=797).contains(&total), "total={total}");
+        let png = png_bytes(&photo(w, h));
+        assert_eq!(reveal_core(&png, PW).unwrap_err(), StegError::NotFound);
+    }
+}
+
+#[test]
+fn hostile_reveal_corrupted_version_byte() {
+    use steg_core::blocks::{embed, header_order, read_bits, Grid, DEFAULT_ENCODER};
+    use steg_core::ecc::{bits_to_bytes, bytes_to_bits, hamming_decode, hamming_encode};
+    use steg_core::image_io::{encode, Format};
+
+    let salt = [7u8; 16];
+    let nonce = [9u8; 12];
+    let src = png_bytes(&photo(640, 480));
+    let out = hide_with(&src, "secret", PW, DEFAULT_ENCODER, salt, nonce).unwrap();
+    let dec = decode(&out.bytes, false).unwrap();
+    let (w, h) = (dec.rgb.width(), dec.rgb.height());
+    let grid = Grid::from_dims(w, h);
+    let h_order = header_order(grid.total());
+
+    let mut bad_header = vec![0x02u8];
+    bad_header.extend_from_slice(&salt);
+    let coded = hamming_encode(&bytes_to_bits(&bad_header));
+    let mut px: Vec<f32> = dec.rgb.as_raw().iter().map(|&v| v as f32).collect();
+    embed(&mut px, &grid, w, &h_order, &coded, DEFAULT_ENCODER);
+    let raw: Vec<u8> = px.iter().map(|v| v.round().clamp(0.0, 255.0) as u8).collect();
+    let tampered_rgb = image::RgbImage::from_raw(w, h, raw).unwrap();
+
+    // Confirm the header actually reads back version 0x02.
+    let read_hdr = bits_to_bytes(&hamming_decode(&read_bits(&tampered_rgb, &grid, &h_order, 17 * 2 * 7)));
+    assert_eq!(read_hdr[0], 0x02);
+
+    let tampered_png = encode(&tampered_rgb, Format::Png).unwrap();
+    assert_eq!(reveal_core(&tampered_png, PW).unwrap_err(), StegError::NotFound);
+}
+
+#[test]
+fn hostile_reveal_bad_length_field() {
+    use steg_core::blocks::{body_order, embed, header_order, read_bits, Grid, DEFAULT_ENCODER};
+    use steg_core::ecc::{bits_to_bytes, bytes_to_bits, hamming_decode, hamming_encode};
+    use steg_core::image_io::{encode, Format};
+
+    // 640x480 has 4800 total blocks -> 4086 body blocks (enough for 97 bytes total,
+    // so length = 500 is within 16..=2016 but does not fit in the image).
+    let (w, h) = (640u32, 480u32);
+    let base = photo(w, h);
+    let grid = Grid::from_dims(w, h);
+    let total = grid.total();
+    let salt = [0x42u8; 16];
+    let h_order = header_order(total);
+    let seed = derive_order_seed(PW, &salt);
+    let b_order = body_order(total, &h_order, seed);
+
+    let mut header = vec![VERSION];
+    header.extend_from_slice(&salt);
+    let header_coded = hamming_encode(&bytes_to_bits(&header));
+
+    // Out of range (> 2016), below minimum (< 16), and in-range but too large for this image.
+    for fake_len in [2017u16, 65535u16, 15u16, 500u16] {
+        let len_coded = hamming_encode(&bytes_to_bits(&fake_len.to_be_bytes()));
+        let mut px: Vec<f32> = base.as_raw().iter().map(|&v| v as f32).collect();
+        embed(&mut px, &grid, w, &h_order, &header_coded, DEFAULT_ENCODER);
+        embed(&mut px, &grid, w, &b_order, &len_coded, DEFAULT_ENCODER);
+        let raw: Vec<u8> = px.iter().map(|v| v.round().clamp(0.0, 255.0) as u8).collect();
+        let forged_rgb = image::RgbImage::from_raw(w, h, raw).unwrap();
+
+        let lb = bits_to_bytes(&hamming_decode(&read_bits(&forged_rgb, &grid, &b_order, 2 * 2 * 7)));
+        assert_eq!(u16::from_be_bytes([lb[0], lb[1]]), fake_len);
+
+        let forged_png = encode(&forged_rgb, Format::Png).unwrap();
+        assert_eq!(reveal_core(&forged_png, PW).unwrap_err(), StegError::NotFound, "len={fake_len}");
+    }
+}

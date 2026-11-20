@@ -34,6 +34,24 @@ impl HideResult {
     }
 }
 
+#[wasm_bindgen]
+pub struct CapacityDetail {
+    chars: u32,
+    bytes: u32,
+}
+
+#[wasm_bindgen]
+impl CapacityDetail {
+    #[wasm_bindgen(getter)]
+    pub fn chars(&self) -> u32 {
+        self.chars
+    }
+    #[wasm_bindgen(getter)]
+    pub fn bytes(&self) -> u32 {
+        self.bytes
+    }
+}
+
 fn js(e: error::StegError) -> JsError {
     JsError::new(&e.to_string())
 }
@@ -57,6 +75,15 @@ pub fn reveal(image: &[u8], password: &str) -> Result<String, JsError> {
 #[wasm_bindgen]
 pub fn capacity(image: &[u8]) -> Result<u32, JsError> {
     payload::capacity_core(image).map_err(js)
+}
+
+#[wasm_bindgen]
+pub fn capacity_detail(image: &[u8]) -> Result<CapacityDetail, JsError> {
+    let c = payload::capacity_detail_core(image).map_err(js)?;
+    Ok(CapacityDetail {
+        chars: c.chars,
+        bytes: c.bytes,
+    })
 }
 
 #[wasm_bindgen]
