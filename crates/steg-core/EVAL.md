@@ -193,14 +193,34 @@ GATE Margin 1.2: PASS
 
 ## Decision
 
-**Keep `Adjusted` as `DEFAULT_ENCODER`.**
+**Keep `Adjusted` as `DEFAULT_ENCODER`, overriding the literal spec 6.6 rule.**
 
-- Python fails the gate: on landscape (17-18 of 20 succeed), street (2-4 of 20) and the synthetic photo (0 of 20) messages are lost after re-saving.
-- Adjusted, Cap 2.0 and Margin 1.2 all pass the gate with 20/20.
-- Adjusted has 0.00% raw bit errors on every image and recompression, and 20/20 even on the chained and stress cases.
-- Cap 2.0 is slightly gentler (about 0.1 to 0.4 dB better PSNR on photos) but leaves small residual bit errors on landscape and street, and on the text stress image it fails completely (0/20). That is too much risk for a negligible visual gain.
-- Margin 1.2 has no extra reliability to show over Adjusted but is 1.5 to 1.8 dB more visible.
+Spec 6.6 says the default is the gate-passing variant with the least distortion, with the stress images only as a tiebreaker. Applied literally, that picks **Cap 2.0**: it passes the gate (20/20 on all five gate images at q92, q85 and q75) and has the higher PSNR. We override that rule, on purpose, for four reasons:
 
-Adjusted is the least distorting variant that is perfectly clean across the gate, chained and stress results, so it wins the tiebreak. No decoder or format change was needed.
+1. The owner explicitly chose the Adjusted encoder (spec section 5).
+2. Cap 2.0 leaves a small but nonzero raw bit error rate on the real landscape and street photos (0.02-0.03%) where Adjusted has none. Error correction absorbed it in this test, but it means less safety margin against other JPEG encoders (phones, messaging apps) than the one used here.
+3. Cap 2.0 fails the text stress image completely (0/20; 3.7% raw errors), where Adjusted is 20/20.
+4. Its visual gain is small: 0 to 0.4 dB PSNR better than Adjusted on the gate images, which is not visible.
+
+Other results: Python fails the gate (landscape 17-18 of 20 succeed, street 2-4 of 20, synthetic photo 0 of 20). Margin 1.2 passes but is 1.2 to 1.6 dB more distorted than Adjusted on the gate images, with no reliability benefit. Adjusted has 0.00% raw bit errors and 20/20 everywhere, including the chained and stress cases. No decoder or format change was needed.
 
 Note: `AdjustedCap`'s clipping compensation was fixed before this run so that it aims at the capped change rather than undoing the cap.
+
+## How to reproduce
+
+```
+CARGO_PROFILE_RELEASE_OPT_LEVEL=3 cargo run --release --manifest-path crates/steg-core/Cargo.toml --example eval > crates/steg-core/EVAL.md.tmp
+```
+
+20 trials per cell (set `TRIALS=n` to change); about 17 minutes. The environment override is no longer needed now that the release profile uses opt-level 3.
+
+## WASM build profile
+
+Key derivation (PBKDF2, 600,000 rounds) is slow at the old `opt-level = "z"` (size-optimised). Measured with `wasm-pack build crates/steg-core --target web --release`, lto on, and one `reveal()` of a hidden sample under Node 24:
+
+| opt-level | .wasm size | reveal() |
+|---|---|---|
+| "z" | 470,405 bytes | 429 ms |
+| 3 | 564,927 bytes | 263 ms |
+
+Size grows 1.2x (well under 2x) and reveal is about 40% faster, so the release profile now uses `opt-level = 3`.
