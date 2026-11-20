@@ -25,4 +25,4 @@ export type StegWorkerResult = WorkerHideResult | string | number | ArrayBuffer
 
 export type StegWorkerResponse =
   | { id: number; ok: true; result: StegWorkerResult }
-  | { id: number; ok: false; error: string }
+  | { id: number; ok: false; error: string; fatal?: boolean }

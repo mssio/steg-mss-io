@@ -121,20 +121,88 @@ describe('createStegClient', () => {
     expect(new Uint8Array(await diffBlob.arrayBuffer())).toEqual(new Uint8Array([0x89, 0x50, 0x4e, 0x47]))
   })
 
-  test('maps ok:false responses to Error with the worker error string', async () => {
-    const w = new FakeWorker()
-    const client = createStegClient(() => w)
+  test('non-fatal ok:false rejects with worker error and does not respawn the worker', async () => {
+    const workers: FakeWorker[] = []
+    const client = createStegClient(() => {
+      const w = new FakeWorker()
+      workers.push(w)
+      return w
+    })
     const blob = new Blob([new Uint8Array([1, 2])])
 
-    const p = client.reveal(blob, 'wrong')
+    const p1 = client.reveal(blob, 'wrong')
     await Bun.sleep(0)
-    w.emitMessage({
-      id: w.posted[0].message.id,
+    expect(workers).toHaveLength(1)
+    workers[0].emitMessage({
+      id: workers[0].posted[0].message.id,
       ok: false,
       error: 'No message found, or the password is wrong.',
     })
 
-    await expect(p).rejects.toThrow('No message found, or the password is wrong.')
+    await expect(p1).rejects.toThrow('No message found, or the password is wrong.')
+    expect(workers[0].terminated).toBe(false)
+
+    const p2 = client.capacity(blob)
+    await Bun.sleep(0)
+    expect(workers).toHaveLength(1)
+    expect(workers[0].posted).toHaveLength(2)
+    workers[0].emitMessage({
+      id: workers[0].posted[1].message.id,
+      ok: true,
+      result: 320,
+    })
+    expect(await p2).toBe(320)
+  })
+
+  test('fatal:true response rejects with fallback, fails other in-flight calls, and respawns on next call', async () => {
+    const workers: FakeWorker[] = []
+    const client = createStegClient(() => {
+      const w = new FakeWorker()
+      workers.push(w)
+      return w
+    })
+    const blob = new Blob([new Uint8Array([1, 2])])
+
+    const pHide = client.hide(blob, 'msg', 'pw')
+    const pReveal = client.reveal(blob, 'pw')
+    for (let i = 0; i < 20 && (workers[0]?.posted.length ?? 0) < 2; i++) {
+      await Bun.sleep(1)
+    }
+    expect(workers).toHaveLength(1)
+    expect(workers[0].posted).toHaveLength(2)
+
+    const hideErr = pHide.then(
+      () => null,
+      (err: unknown) => err,
+    )
+    const revealErr = pReveal.then(
+      () => null,
+      (err: unknown) => err,
+    )
+
+    workers[0].emitMessage({
+      id: workers[0].posted[0].message.id,
+      ok: false,
+      error: 'Something went wrong. Please try again.',
+      fatal: true,
+    })
+
+    expect(await hideErr).toEqual(new Error('Something went wrong. Please try again.'))
+    expect(await revealErr).toEqual(new Error('No message found, or the password is wrong.'))
+    expect(workers[0].terminated).toBe(true)
+
+    const pNext = client.capacity(blob)
+    for (let i = 0; i < 20 && (workers[1]?.posted.length ?? 0) < 1; i++) {
+      await Bun.sleep(1)
+    }
+    expect(workers).toHaveLength(2)
+    expect(workers[1].terminated).toBe(false)
+    workers[1].emitMessage({
+      id: workers[1].posted[0].message.id,
+      ok: true,
+      result: 500,
+    })
+    expect(await pNext).toBe(500)
   })
 
   test('maps unexpected worker errors to op-specific fallbacks and respawns on next call', async () => {

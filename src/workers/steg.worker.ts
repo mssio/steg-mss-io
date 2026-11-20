@@ -17,6 +17,7 @@ function fallbackError(op: StegWorkerRequest['op']): string {
 }
 
 let ready: Promise<unknown> | null = null
+let poisoned = false
 
 function ensureReady(): Promise<unknown> {
   if (!ready) {
@@ -41,6 +42,10 @@ function toTransferableBuffer(view: Uint8Array): ArrayBuffer {
 
 scope.addEventListener('message', async (event) => {
   const req = event.data
+  if (poisoned) {
+    scope.postMessage({ id: req.id, ok: false, error: fallbackError(req.op), fatal: true })
+    return
+  }
   try {
     await ensureReady()
   } catch {
@@ -89,10 +94,21 @@ scope.addEventListener('message', async (event) => {
       }
     }
   } catch (err: unknown) {
-    const message =
-      err instanceof Error && err.constructor === Error && err.message
-        ? err.message
-        : fallbackError(req.op)
-    scope.postMessage({ id: req.id, ok: false, error: message })
+    const isPlainError = err instanceof Error && err.constructor === Error
+    if (isPlainError) {
+      scope.postMessage({
+        id: req.id,
+        ok: false,
+        error: err.message || fallbackError(req.op),
+      })
+      return
+    }
+    poisoned = true
+    scope.postMessage({
+      id: req.id,
+      ok: false,
+      error: fallbackError(req.op),
+      fatal: true,
+    })
   }
 })

@@ -62,22 +62,32 @@ export function createStegClient(spawn: () => WorkerLike): StegClient {
     if (worker) return worker
     const created = spawn()
     created.addEventListener('message', (event) => {
+      if (worker !== created) return
       const res = event.data
       if (!res || typeof res.id !== 'number') return
       const entry = pending.get(res.id)
-      if (!entry) return
-      pending.delete(res.id)
-      if (res.ok) {
-        entry.resolve(res.result)
-      } else {
-        entry.reject(new Error(res.error || fallbackError(entry.op)))
+      if (entry) {
+        pending.delete(res.id)
+        if (res.ok) {
+          entry.resolve(res.result)
+        } else {
+          const message = res.fatal
+            ? fallbackError(entry.op)
+            : res.error || fallbackError(entry.op)
+          entry.reject(new Error(message))
+        }
+      }
+      if (!res.ok && res.fatal) {
+        failAllAndReset()
       }
     })
     created.addEventListener('error', (event) => {
       event.preventDefault?.()
+      if (worker !== created) return
       failAllAndReset()
     })
     created.addEventListener('messageerror', () => {
+      if (worker !== created) return
       failAllAndReset()
     })
     worker = created
