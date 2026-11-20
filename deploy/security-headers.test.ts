@@ -138,7 +138,7 @@ describe('deploy config parity', () => {
     })
 
     expect(config.rewrites).toContainEqual({
-      source: '/(.*)',
+      source: '/((?!assets/).*)',
       destination: '/index.html',
     })
   })
@@ -148,7 +148,16 @@ describe('deploy config parity', () => {
     const config = JSON.parse(stripLineComments(raw)) as WranglerConfig
 
     expect(config.assets?.directory).toBe('./dist')
-    expect(config.assets?.not_found_handling).toBe('single-page-application')
+    expect(config.assets?.not_found_handling).toBe('none')
     expect('main' in config).toBe(false)
+
+    const redirectsRaw = readFileSync(path.join(rootDir, 'public', '_redirects'), 'utf8')
+    const rules = redirectsRaw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith('#'))
+    expect(rules).toContain('/reveal / 200')
+    expect(rules).toContain('/how-it-works / 200')
+    expect(rules.some((line) => line.startsWith('/assets/') || line.startsWith('/*'))).toBe(false)
   })
 })

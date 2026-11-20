@@ -1,0 +1,5 @@
+# Explicit SPA routes proxied to / (200) so missing /assets/* return 404 instead of cached HTML.
+/reveal / 200
+/reveal/ / 200
+/how-it-works / 200
+/how-it-works/ / 200

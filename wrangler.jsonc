@@ -1,10 +1,14 @@
 // Assets-only Cloudflare Worker config (no Worker script, so public/_headers applies to every response).
+// Without a Worker script, `not_found_handling: "single-page-application"` returns 200 index.html for
+// EVERY missing path (including non-navigation requests under /assets/*), pairing HTML with the immutable
+// Cache-Control rule in public/_headers. Using `not_found_handling: "none"` with explicit 200 proxy rules
+// in public/_redirects serves SPA routes while ensuring missing /assets/* return 404.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "steg-mss-io",
   "compatibility_date": "2026-11-20",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "none"
   }
 }

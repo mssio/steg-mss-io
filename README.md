@@ -67,11 +67,11 @@ bun run og      # Regenerate public/og-image.png from public/og-art.png
 bun run deploy:cf
 ```
 
-This runs `bun run build` and `wrangler deploy` using [`wrangler.jsonc`](wrangler.jsonc) as an assets-only Worker (`assets.directory = "./dist"`, `assets.not_found_handling = "single-page-application"`, no Worker script). Vite copies [`public/_headers`](public/_headers) into `dist/_headers`, which Cloudflare applies to every response for security headers and immutable `/assets/*` caching.
+This runs `bun run build` and `wrangler deploy` using [`wrangler.jsonc`](wrangler.jsonc) as an assets-only Worker (`assets.directory = "./dist"`, `assets.not_found_handling = "none"`, no Worker script). Vite copies [`public/_headers`](public/_headers) and [`public/_redirects`](public/_redirects) into `dist/`; Cloudflare applies `_headers` to every response for security headers and immutable `/assets/*` caching, and `_redirects` proxies SPA routes (`/reveal`, `/how-it-works`) to `/` with HTTP 200 so missing `/assets/*` return 404 instead of cached HTML.
 
 ### Vercel
 
-Vercel's default build image does not include a Rust toolchain, so build `dist/` locally or in CI and deploy the prebuilt output (for example via `vercel deploy --prebuilt` or a CI job with Rust + `wasm-pack` + Bun). [`vercel.json`](vercel.json) supplies the security headers, immutable `/assets/*` caching, and SPA fallback rewrite (`/(.*)` → `/index.html`).
+Vercel's default build image does not include a Rust toolchain, so build `dist/` locally or in CI and deploy the prebuilt output (for example via `vercel deploy --prebuilt` or a CI job with Rust + `wasm-pack` + Bun). [`vercel.json`](vercel.json) supplies the security headers, immutable `/assets/*` caching, and SPA fallback rewrite (`/((?!assets/).*)` → `/index.html`, excluding `/assets/` so missing assets return 404).
 
 ### Other static hosts
 
