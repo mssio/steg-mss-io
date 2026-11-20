@@ -1,0 +1,10 @@
+// Assets-only Cloudflare Worker config (no Worker script, so public/_headers applies to every response).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "steg-mss-io",
+  "compatibility_date": "2026-11-20",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
