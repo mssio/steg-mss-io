@@ -128,13 +128,20 @@ pub fn embed(px: &mut [f32], grid: &Grid, width: u32, order: &[u32], coded: &[u8
             let margin = if let Encoder::AdjustedMargin(m) = enc { m } else { 1.0 };
             let t = sgn * STRENGTH * margin;
             let mut o = t;
+            // Diff the clipping compensation aims at: `t`, or for the capped variant the
+            // capped offset's own result (so the push does not undo the cap).
+            let mut aim = t;
             if enc != Encoder::Python {
                 let d = block_diff(&f32_getter(px, width), bx, by);
                 if d.signum() != t.signum() {
                     o = t - d;
                 }
                 if let Encoder::AdjustedCap(cap) = enc {
-                    o = o.clamp(-cap * STRENGTH, cap * STRENGTH);
+                    let capped = o.clamp(-cap * STRENGTH, cap * STRENGTH);
+                    if capped != o {
+                        aim = d + capped;
+                        o = capped;
+                    }
                 }
             }
             shift_region(px, width, bx, by, true, o / 2.0);
@@ -144,9 +151,9 @@ pub fn embed(px: &mut [f32], grid: &Grid, width: u32, order: &[u32], coded: &[u8
             }
             // Compensate for clipping: push the region with headroom by the shortfall.
             let (c, e) = centre_edge(&f32_getter(px, width), bx, by);
-            let shortfall = t - (c - e);
-            if shortfall * t.signum() > 0.0 {
-                let (c_room, e_room) = if t > 0.0 { (255.0 - c, e) } else { (c, 255.0 - e) };
+            let shortfall = aim - (c - e);
+            if shortfall * aim.signum() > 0.0 {
+                let (c_room, e_room) = if aim > 0.0 { (255.0 - c, e) } else { (c, 255.0 - e) };
                 if c_room >= e_room {
                     shift_region(px, width, bx, by, true, shortfall);
                 } else {
