@@ -1,6 +1,7 @@
 use crate::error::StegError;
 use image::{
     codecs::{jpeg::JpegDecoder, jpeg::JpegEncoder, png::PngDecoder},
+    metadata::Orientation,
     DynamicImage, ExtendedColorType, ImageDecoder, ImageEncoder, ImageFormat, RgbImage,
 };
 use std::io::Cursor;
@@ -32,7 +33,7 @@ pub struct Decoded {
 fn load<D: ImageDecoder>(
     decoder: D,
     apply_orientation: bool,
-) -> Result<DynamicImage, StegError> {
+) -> Result<RgbImage, StegError> {
     let (w, h) = decoder.dimensions();
     if (w as u64) * (h as u64) > MAX_PIXELS {
         return Err(StegError::TooLarge);
@@ -43,11 +44,17 @@ fn load<D: ImageDecoder>(
     } else {
         None
     };
-    let mut img = DynamicImage::from_decoder(decoder).map_err(|_| StegError::Unsupported)?;
-    if let Some(o) = orientation {
+    // Convert to RGB8 before orientation so any RGBA/16-bit intermediate is dropped
+    // immediately rather than surviving rotation or outliving decode().
+    let rgb = DynamicImage::from_decoder(decoder)
+        .map_err(|_| StegError::Unsupported)?
+        .into_rgb8();
+    if let Some(o) = orientation.filter(|&o| o != Orientation::NoTransforms) {
+        let mut img = DynamicImage::ImageRgb8(rgb);
         img.apply_orientation(o);
+        return Ok(img.into_rgb8());
     }
-    Ok(img)
+    Ok(rgb)
 }
 
 pub fn decode(bytes: &[u8], apply_orientation: bool) -> Result<Decoded, StegError> {
@@ -57,7 +64,7 @@ pub fn decode(bytes: &[u8], apply_orientation: bool) -> Result<Decoded, StegErro
         _ => return Err(StegError::Unsupported),
     };
     let cur = Cursor::new(bytes);
-    let img = match format {
+    let rgb = match format {
         Format::Png => load(
             PngDecoder::new(cur).map_err(|_| StegError::Unsupported)?,
             apply_orientation,
@@ -67,10 +74,7 @@ pub fn decode(bytes: &[u8], apply_orientation: bool) -> Result<Decoded, StegErro
             apply_orientation,
         )?,
     };
-    Ok(Decoded {
-        rgb: img.into_rgb8(),
-        format,
-    })
+    Ok(Decoded { rgb, format })
 }
 
 pub fn encode(rgb: &RgbImage, format: Format) -> Result<Vec<u8>, StegError> {

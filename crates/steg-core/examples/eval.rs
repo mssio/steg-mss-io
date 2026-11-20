@@ -110,10 +110,8 @@ fn main() {
         let bits: Vec<u8> = (0..n_coded).map(|_| (brng.next_u32() & 1) as u8).collect();
         for (vname, enc) in variants {
             // Raw-BER image: random bits in every block.
-            let mut px: Vec<f32> = orig.as_raw().iter().map(|&v| v as f32).collect();
-            embed(&mut px, &grid, w, &order, &bits, enc);
-            let raw: Vec<u8> = px.iter().map(|v| v.round().clamp(0.0, 255.0) as u8).collect();
-            let stego_full = RgbImage::from_raw(w, h, raw).unwrap();
+            let mut stego_full = orig.clone();
+            embed(&mut stego_full, &grid, &order, &bits, enc);
             let stego_png = png(&stego_full);
             // Distortion from a realistic hide (500 chars).
             let mut rng = ChaCha20Rng::from_seed([1; 32]);

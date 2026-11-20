@@ -65,10 +65,8 @@ fn errors_after_q75(img: &RgbImage, enc: Encoder) -> (usize, usize) {
     let order: Vec<u32> = (0..total as u32).collect();
     let n = total / REDUNDANCY;
     let bits = coded_bits(n);
-    let mut px: Vec<f32> = img.as_raw().iter().map(|&v| v as f32).collect();
-    embed(&mut px, &grid, img.width(), &order, &bits, enc);
-    let raw: Vec<u8> = px.iter().map(|v| v.round().clamp(0.0, 255.0) as u8).collect();
-    let stego = RgbImage::from_raw(img.width(), img.height(), raw).unwrap();
+    let mut stego = img.clone();
+    embed(&mut stego, &grid, &order, &bits, enc);
     let q92 = encode(&stego, Format::Jpeg).unwrap();
     let d92 = decode(&q92, false).unwrap().rgb;
     let d75 = decode(&jpeg_bytes(&d92, 75), false).unwrap().rgb;

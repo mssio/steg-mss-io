@@ -96,7 +96,7 @@ pub fn hide_with(
     if message.is_empty() {
         return Err(StegError::EmptyMessage);
     }
-    let dec = decode(image, true)?;
+    let mut dec = decode(image, true)?;
     let (w, h) = (dec.rgb.width(), dec.rgb.height());
     let grid = Grid::from_dims(w, h);
     let total = grid.total();
@@ -122,23 +122,31 @@ pub fn hide_with(
     let mut body = (ct.len() as u16).to_be_bytes().to_vec();
     body.extend_from_slice(&nonce);
     body.extend_from_slice(&ct);
+    drop(ct);
 
     let header_coded = encode_bytes(&header);
     let body_coded = encode_bytes(&body);
+    drop(header);
+    drop(body);
+
+    let blocks_used = (HEADER_BLOCKS + body_coded.len() * REDUNDANCY) as u32;
     let h_order = header_order(total);
     let b_order = body_order(total, &h_order, seed);
     debug_assert!(b_order.len() >= body_coded.len() * REDUNDANCY);
 
-    let mut px: Vec<f32> = dec.rgb.as_raw().iter().map(|&v| v as f32).collect();
-    embed(&mut px, &grid, w, &h_order, &header_coded, enc);
-    embed(&mut px, &grid, w, &b_order, &body_coded, enc);
-    let raw: Vec<u8> = px.iter().map(|v| v.round().clamp(0.0, 255.0) as u8).collect();
-    let out = RgbImage::from_raw(w, h, raw).expect("buffer size matches");
-    let bytes = encode(&out, dec.format)?;
+    embed(&mut dec.rgb, &grid, &h_order, &header_coded, enc);
+    embed(&mut dec.rgb, &grid, &b_order, &body_coded, enc);
+    // Free order/coded buffers before encoding the output image.
+    drop(h_order);
+    drop(b_order);
+    drop(header_coded);
+    drop(body_coded);
+
+    let bytes = encode(&dec.rgb, dec.format)?;
     Ok(Hidden {
         bytes,
         mime: dec.format.mime().to_string(),
-        blocks_used: (HEADER_BLOCKS + body_coded.len() * REDUNDANCY) as u32,
+        blocks_used,
         blocks_total: total as u32,
     })
 }

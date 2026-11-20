@@ -264,10 +264,8 @@ fn hostile_reveal_corrupted_version_byte() {
     let mut bad_header = vec![0x02u8];
     bad_header.extend_from_slice(&salt);
     let coded = hamming_encode(&bytes_to_bits(&bad_header));
-    let mut px: Vec<f32> = dec.rgb.as_raw().iter().map(|&v| v as f32).collect();
-    embed(&mut px, &grid, w, &h_order, &coded, DEFAULT_ENCODER);
-    let raw: Vec<u8> = px.iter().map(|v| v.round().clamp(0.0, 255.0) as u8).collect();
-    let tampered_rgb = image::RgbImage::from_raw(w, h, raw).unwrap();
+    let mut tampered_rgb = dec.rgb;
+    embed(&mut tampered_rgb, &grid, &h_order, &coded, DEFAULT_ENCODER);
 
     // Confirm the header actually reads back version 0x02.
     let read_hdr = bits_to_bytes(&hamming_decode(&read_bits(&tampered_rgb, &grid, &h_order, 17 * 2 * 7)));
@@ -301,16 +299,57 @@ fn hostile_reveal_bad_length_field() {
     // Out of range (> 2016), below minimum (< 16), and in-range but too large for this image.
     for fake_len in [2017u16, 65535u16, 15u16, 500u16] {
         let len_coded = hamming_encode(&bytes_to_bits(&fake_len.to_be_bytes()));
-        let mut px: Vec<f32> = base.as_raw().iter().map(|&v| v as f32).collect();
-        embed(&mut px, &grid, w, &h_order, &header_coded, DEFAULT_ENCODER);
-        embed(&mut px, &grid, w, &b_order, &len_coded, DEFAULT_ENCODER);
-        let raw: Vec<u8> = px.iter().map(|v| v.round().clamp(0.0, 255.0) as u8).collect();
-        let forged_rgb = image::RgbImage::from_raw(w, h, raw).unwrap();
+        let mut forged_rgb = base.clone();
+        embed(&mut forged_rgb, &grid, &h_order, &header_coded, DEFAULT_ENCODER);
+        embed(&mut forged_rgb, &grid, &b_order, &len_coded, DEFAULT_ENCODER);
 
         let lb = bits_to_bytes(&hamming_decode(&read_bits(&forged_rgb, &grid, &b_order, 2 * 2 * 7)));
         assert_eq!(u16::from_be_bytes([lb[0], lb[1]]), fake_len);
 
         let forged_png = encode(&forged_rgb, Format::Png).unwrap();
         assert_eq!(reveal_core(&forged_png, PW).unwrap_err(), StegError::NotFound, "len={fake_len}");
+    }
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(bytes);
+    let mut s = String::with_capacity(64);
+    for b in digest {
+        use std::fmt::Write;
+        let _ = write!(&mut s, "{b:02x}");
+    }
+    s
+}
+
+#[test]
+fn embed_refactor_is_byte_identical() {
+    use steg_core::blocks::DEFAULT_ENCODER;
+    let salt = [0x11u8; 16];
+    let nonce = [0x22u8; 12];
+    let msg = "golden-refactor-check: 秘密 🔐 0123456789";
+    let pw = "golden-passphrase";
+
+    // Recorded from the pre-refactor full-image f32 embed implementation.
+    let cases: [(&str, Vec<u8>, &str); 3] = [
+        (
+            "photo_png",
+            png_bytes(&photo(1600, 1200)),
+            "4fcdf5ea83f60d1c7a32c5268128e243bcbe3e2eca9474d991a80a843d950972",
+        ),
+        (
+            "photo_jpeg",
+            jpeg_bytes(&photo(1600, 1200), 90),
+            "8fb6baca55158cea3520f7f4e33514a0f0c6d2341429ece37f5edfab5c73cec0",
+        ),
+        (
+            "sample_street",
+            sample("street"),
+            "ad33a82d25c7f91284692912fdd12aab7a6f12a0d05c25609da9b731082ad319",
+        ),
+    ];
+    for (name, input, expected) in cases {
+        let out = hide_with(&input, msg, pw, DEFAULT_ENCODER, salt, nonce).unwrap();
+        assert_eq!(sha256_hex(&out.bytes), expected, "{name}");
     }
 }

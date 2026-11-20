@@ -100,31 +100,51 @@ pub fn block_diff(get: &impl Fn(u32, u32) -> [f32; 3], bx: u32, by: u32) -> f32 
     c - e
 }
 
-fn f32_getter(px: &[f32], width: u32) -> impl Fn(u32, u32) -> [f32; 3] + '_ {
-    move |x, y| {
-        let i = (y as usize * width as usize + x as usize) * 3;
-        [px[i], px[i + 1], px[i + 2]]
+fn scratch_centre_edge(blk: &[[f32; 3]; (BLOCK * BLOCK) as usize]) -> (f32, f32) {
+    let (mut c, mut e) = (0.0f32, 0.0f32);
+    for dy in 0..BLOCK {
+        for dx in 0..BLOCK {
+            let y = lum(blk[(dy * BLOCK + dx) as usize]);
+            if is_centre(dx, dy) {
+                c += y;
+            } else {
+                e += y;
+            }
+        }
     }
+    (c / 16.0, e / 48.0)
 }
 
-fn shift_region(px: &mut [f32], width: u32, bx: u32, by: u32, centre: bool, amt: f32) {
+fn shift_block_region(blk: &mut [[f32; 3]; (BLOCK * BLOCK) as usize], centre: bool, amt: f32) {
     for dy in 0..BLOCK {
         for dx in 0..BLOCK {
             if is_centre(dx, dy) == centre {
-                let i = ((by * BLOCK + dy) as usize * width as usize + (bx * BLOCK + dx) as usize) * 3;
+                let p = &mut blk[(dy * BLOCK + dx) as usize];
                 for ch in 0..3 {
-                    px[i + ch] = (px[i + ch] + amt).clamp(0.0, 255.0);
+                    p[ch] = (p[ch] + amt).clamp(0.0, 255.0);
                 }
             }
         }
     }
 }
 
-pub fn embed(px: &mut [f32], grid: &Grid, width: u32, order: &[u32], coded: &[u8], enc: Encoder) {
+/// Embeds `coded` bits into `rgb` in place, one 8x8 block at a time using a
+/// per-block `f32` scratch buffer (no full-image `f32` copy).
+pub fn embed(rgb: &mut RgbImage, grid: &Grid, order: &[u32], coded: &[u8], enc: Encoder) {
+    let mut scratch = [[0.0f32; 3]; (BLOCK * BLOCK) as usize];
     for (k, &bit) in coded.iter().enumerate() {
         let sgn = if bit == 1 { 1.0f32 } else { -1.0 };
         for &blk in &order[k * REDUNDANCY..(k + 1) * REDUNDANCY] {
             let (bx, by) = (blk % grid.bw, blk / grid.bw);
+            let x0 = bx * BLOCK;
+            let y0 = by * BLOCK;
+            for dy in 0..BLOCK {
+                for dx in 0..BLOCK {
+                    let p = rgb.get_pixel(x0 + dx, y0 + dy).0;
+                    scratch[(dy * BLOCK + dx) as usize] = [p[0] as f32, p[1] as f32, p[2] as f32];
+                }
+            }
+
             let margin = if let Encoder::AdjustedMargin(m) = enc { m } else { 1.0 };
             let t = sgn * STRENGTH * margin;
             let mut o = t;
@@ -132,7 +152,8 @@ pub fn embed(px: &mut [f32], grid: &Grid, width: u32, order: &[u32], coded: &[u8
             // capped offset's own result (so the push does not undo the cap).
             let mut aim = t;
             if enc != Encoder::Python {
-                let d = block_diff(&f32_getter(px, width), bx, by);
+                let (c, e) = scratch_centre_edge(&scratch);
+                let d = c - e;
                 if d.signum() != t.signum() {
                     o = t - d;
                 }
@@ -144,20 +165,31 @@ pub fn embed(px: &mut [f32], grid: &Grid, width: u32, order: &[u32], coded: &[u8
                     }
                 }
             }
-            shift_region(px, width, bx, by, true, o / 2.0);
-            shift_region(px, width, bx, by, false, -o / 2.0);
-            if enc == Encoder::Python {
-                continue;
+            shift_block_region(&mut scratch, true, o / 2.0);
+            shift_block_region(&mut scratch, false, -o / 2.0);
+            if enc != Encoder::Python {
+                // Compensate for clipping: push the region with headroom by the shortfall.
+                let (c, e) = scratch_centre_edge(&scratch);
+                let shortfall = aim - (c - e);
+                if shortfall * aim.signum() > 0.0 {
+                    let (c_room, e_room) = if aim > 0.0 { (255.0 - c, e) } else { (c, 255.0 - e) };
+                    if c_room >= e_room {
+                        shift_block_region(&mut scratch, true, shortfall);
+                    } else {
+                        shift_block_region(&mut scratch, false, -shortfall);
+                    }
+                }
             }
-            // Compensate for clipping: push the region with headroom by the shortfall.
-            let (c, e) = centre_edge(&f32_getter(px, width), bx, by);
-            let shortfall = aim - (c - e);
-            if shortfall * aim.signum() > 0.0 {
-                let (c_room, e_room) = if aim > 0.0 { (255.0 - c, e) } else { (c, 255.0 - e) };
-                if c_room >= e_room {
-                    shift_region(px, width, bx, by, true, shortfall);
-                } else {
-                    shift_region(px, width, bx, by, false, -shortfall);
+
+            for dy in 0..BLOCK {
+                for dx in 0..BLOCK {
+                    let p = scratch[(dy * BLOCK + dx) as usize];
+                    let out = rgb.get_pixel_mut(x0 + dx, y0 + dy);
+                    out.0 = [
+                        p[0].round().clamp(0.0, 255.0) as u8,
+                        p[1].round().clamp(0.0, 255.0) as u8,
+                        p[2].round().clamp(0.0, 255.0) as u8,
+                    ];
                 }
             }
         }
