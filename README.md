@@ -67,7 +67,7 @@ bun run og      # Regenerate public/og-image.png from public/og-art.png
 bun run deploy:cf
 ```
 
-This runs `bun run build` and `wrangler deploy` using [`wrangler.jsonc`](wrangler.jsonc) as an assets-only Worker (`assets.directory = "./dist"`, `assets.not_found_handling = "none"`, no Worker script). Vite copies [`public/_headers`](public/_headers) and [`public/_redirects`](public/_redirects) into `dist/`; Cloudflare applies `_headers` to every response for security headers and immutable `/assets/*` caching, and `_redirects` proxies SPA routes (`/reveal`, `/how-it-works`) to `/` with HTTP 200 so missing `/assets/*` return 404 instead of cached HTML.
+This runs `bun run build` (which copies `dist/index.html` to `dist/404.html`) and `wrangler deploy` using [`wrangler.jsonc`](wrangler.jsonc) as an assets-only Worker (`assets.directory = "./dist"`, `assets.not_found_handling = "404-page"`, no Worker script). Vite copies [`public/_headers`](public/_headers) and [`public/_redirects`](public/_redirects) into `dist/`; Cloudflare applies `_headers` to every response for security headers and immutable `/assets/*` caching, `_redirects` proxies the SPA routes (`/reveal`, `/how-it-works`) to `/` with HTTP 200, and unmatched paths serve `dist/404.html` with HTTP 404 so unknown routes render the app's NotFound page while missing `/assets/*` return 404 instead of 200.
 
 ### Vercel
 
@@ -78,4 +78,4 @@ Vercel's default build image does not include a Rust toolchain, so build `dist/`
 1. Run `bun run build` and upload `dist/`.
 2. Copy the response headers from [`deploy/security-headers.ts`](deploy/security-headers.ts) onto all routes, and set `Cache-Control: public, max-age=31536000, immutable` on `/assets/*`.
 3. Ensure `.wasm` files are served with `Content-Type: application/wasm`.
-4. Add a single-page-application fallback serving `/index.html` with HTTP 200 for unknown routes (such as `/reveal` and `/how-it-works`).
+4. Serve `/index.html` for the app routes (`/reveal`, `/how-it-works`) — or for unknown routes — but never for `/assets/*` (missing hashed assets must return HTTP 404). `bun run build` also writes `dist/404.html` (a copy of `dist/index.html`) for hosts that serve a custom 404 page with HTTP 404.

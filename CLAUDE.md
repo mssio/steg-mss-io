@@ -44,7 +44,7 @@ See §6 of [`docs/superpowers/specs/2026-11-20-steg-wasm-design.md`](docs/superp
 - `src/pages/Studio.tsx` pre-warms the worker on mount via `warm()` and wires `Hero` (`PrivacyBadge`), `ModeSwitch`, `ImageStage` (`Dropzone`, `SampleChips`, `Scanline`, `CompareSlider`) with `DiffToggle`, `HidePanel` (`CapacityMeter`, `PasswordField`, `HideResultCard`), `RevealPanel` (`PasswordField`, `RevealedMessage`), shared `StudioControls` (`PrimaryAction`, `Step`), and mobile `StickyActionBar`.
 - Hooks (`src/hooks/`): `useLoadedImage`, `useFileDrop`, `useObjectUrl` (revokes object URLs on reset/unmount), `useRun` (generation guard so stale worker results are dropped if the image or mode changes mid-run).
 - Styling & theme: Tailwind CSS v4 (`src/index.css`), darkroom dark default + light paper theme toggled via `src/lib/theme.ts` and initialized before first paint by `public/theme-init.js` (external script because CSP forbids inline scripts). Self-hosted `@fontsource/instrument-serif`, `@fontsource-variable/geist`, `@fontsource-variable/geist-mono`.
-- Deploy config: `deploy/security-headers.ts` is the single source of truth for response headers and immutable cache, imported by `vite.config.ts` (`preview.headers`) and mirrored in `public/_headers` and `vercel.json`. `deploy/security-headers.test.ts` checks parity plus `wrangler.jsonc` / `public/_redirects` SPA routing (`not_found_handling: "none"` with explicit 200 proxy rules) and the `vercel.json` rewrite (`/((?!assets/).*)` → `/index.html`).
+- Deploy config: `deploy/security-headers.ts` is the single source of truth for response headers and immutable cache, imported by `vite.config.ts` (`preview.headers`) and mirrored in `public/_headers` and `vercel.json`. `deploy/security-headers.test.ts` checks parity plus `wrangler.jsonc` / `public/_redirects` SPA routing (`not_found_handling: "404-page"` with explicit 200 proxy rules for `/reveal`, `/reveal/`, `/how-it-works`, `/how-it-works/` and `dist/404.html` copied from `dist/index.html` by `bun run build`) and the `vercel.json` rewrite (`/((?!assets/).*)` → `/index.html`).
 
 ## Commands
 
@@ -52,7 +52,7 @@ See §6 of [`docs/superpowers/specs/2026-11-20-steg-wasm-design.md`](docs/superp
 |---|---|
 | `bun run dev` | Start Vite dev server (builds `src/wasm/` first if missing) |
 | `bun run wasm` | Compile `crates/steg-core` to `src/wasm/` via `wasm-pack` |
-| `bun run build` | `wasm` → `tsc -b` → `vite build` → static `dist/` |
+| `bun run build` | `wasm` → `tsc -b` → `vite build` → copy `dist/index.html` to `dist/404.html` → static `dist/` |
 | `bun run preview` | Serve `dist/` locally on port 4173 with production headers |
 | `bun run test` | Run `cargo test` in `crates/steg-core` and all `bun test` suites (`src/` + `deploy/`) |
 | `bun test deploy` | Run only the deploy headers/config parity tests |

@@ -148,7 +148,7 @@ describe('deploy config parity', () => {
     const config = JSON.parse(stripLineComments(raw)) as WranglerConfig
 
     expect(config.assets?.directory).toBe('./dist')
-    expect(config.assets?.not_found_handling).toBe('none')
+    expect(config.assets?.not_found_handling).toBe('404-page')
     expect('main' in config).toBe(false)
 
     const redirectsRaw = readFileSync(path.join(rootDir, 'public', '_redirects'), 'utf8')
@@ -157,7 +157,14 @@ describe('deploy config parity', () => {
       .map((line) => line.trim())
       .filter((line) => line.length > 0 && !line.startsWith('#'))
     expect(rules).toContain('/reveal / 200')
+    expect(rules).toContain('/reveal/ / 200')
     expect(rules).toContain('/how-it-works / 200')
+    expect(rules).toContain('/how-it-works/ / 200')
     expect(rules.some((line) => line.startsWith('/assets/') || line.startsWith('/*'))).toBe(false)
+
+    const pkg = JSON.parse(readFileSync(path.join(rootDir, 'package.json'), 'utf8')) as {
+      scripts?: Record<string, string>
+    }
+    expect(pkg.scripts?.build).toContain('cp dist/index.html dist/404.html')
   })
 })

@@ -6,7 +6,7 @@
   "scripts": {
     "wasm": "wasm-pack build crates/steg-core --target web --release --out-dir ../../src/wasm",
     "dev": "(test -d src/wasm || bun run wasm) && vite",
-    "build": "bun run wasm && tsc -b && vite build && find dist -name .DS_Store -delete",
+    "build": "bun run wasm && tsc -b && vite build && cp dist/index.html dist/404.html && find dist -name .DS_Store -delete",
     "preview": "vite preview",
     "test": "cargo test --manifest-path crates/steg-core/Cargo.toml && bun test",
     "lint": "oxlint",
