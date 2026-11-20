@@ -151,6 +151,9 @@ fn has_image_magic(bytes: &[u8]) -> bool {
 }
 
 pub fn reveal_core(image: &[u8], password: &str) -> Result<String, StegError> {
+    if password.is_empty() {
+        return Err(StegError::EmptyPassword);
+    }
     let dec = match decode(image, false) {
         Ok(d) => d,
         Err(StegError::TooLarge) => return Err(StegError::TooLarge),

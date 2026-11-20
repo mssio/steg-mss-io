@@ -102,6 +102,7 @@ fn empty_inputs() {
     let img = png_bytes(&photo(640, 480));
     assert_eq!(hide_core(&img, "x", "").unwrap_err(), StegError::EmptyPassword);
     assert_eq!(hide_core(&img, "", "p").unwrap_err(), StegError::EmptyMessage);
+    assert_eq!(reveal_core(&img, "").unwrap_err(), StegError::EmptyPassword);
 }
 
 #[test]
