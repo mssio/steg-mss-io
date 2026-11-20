@@ -7,8 +7,10 @@ pub enum StegError {
     Unsupported,
     TooSmall,
     TooLong(u32),
+    TooLongBytes(u32),
     EmptyMessage,
     EmptyPassword,
+    Internal,
 }
 
 impl fmt::Display for StegError {
@@ -19,8 +21,12 @@ impl fmt::Display for StegError {
             Self::Unsupported => f.write_str("Only PNG and JPEG images are supported."),
             Self::TooSmall => f.write_str("This image is too small to hold a message."),
             Self::TooLong(n) => write!(f, "This image can hold at most {n} characters."),
+            Self::TooLongBytes(n) => {
+                write!(f, "This message is too long for this image (max {n} bytes).")
+            }
             Self::EmptyMessage => f.write_str("Enter a message."),
             Self::EmptyPassword => f.write_str("Enter a password."),
+            Self::Internal => f.write_str("Something went wrong. Please try again."),
         }
     }
 }

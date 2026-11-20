@@ -77,15 +77,23 @@ fn byte_cap_enforced() {
     let out = hide_core(&img, &ok, PW).unwrap();
     assert_eq!(reveal_core(&out.bytes, PW).unwrap(), ok);
     let emoji = "😀".repeat(26);
+    assert!(emoji.chars().count() <= m as usize);
     assert!(emoji.len() as i64 > m);
-    assert_eq!(hide_core(&img, &emoji, PW).unwrap_err(), StegError::TooLong(m as u32));
+    assert_eq!(hide_core(&img, &emoji, PW).unwrap_err(), StegError::TooLongBytes(m as u32));
     assert_eq!(hide_core(&img, &"a".repeat(m as usize + 1), PW).unwrap_err(), StegError::TooLong(m as u32));
 }
 
 #[test]
 fn char_limit_500() {
     let img = png_bytes(&photo(1600, 1200));
+    let m = max_message_bytes(((1600 / 8) * (1200 / 8)) as usize);
+    assert!(m > 500, "M={m}");
     assert_eq!(hide_core(&img, &"a".repeat(501), PW).unwrap_err(), StegError::TooLong(500));
+    // Under 500 code points, but UTF-8 byte length exceeds M -> TooLongBytes(M).
+    let emoji = "😀".repeat((m as usize / 4) + 1);
+    assert!(emoji.chars().count() <= 500);
+    assert!(emoji.len() as i64 > m);
+    assert_eq!(hide_core(&img, &emoji, PW).unwrap_err(), StegError::TooLongBytes(m as u32));
     let out = hide_core(&img, &"a".repeat(500), PW).unwrap();
     assert_eq!(reveal_core(&out.bytes, PW).unwrap().len(), 500);
 }
@@ -209,8 +217,13 @@ fn error_display_strings() {
         (StegError::Unsupported, "Only PNG and JPEG images are supported."),
         (StegError::TooSmall, "This image is too small to hold a message."),
         (StegError::TooLong(123), "This image can hold at most 123 characters."),
+        (
+            StegError::TooLongBytes(456),
+            "This message is too long for this image (max 456 bytes).",
+        ),
         (StegError::EmptyMessage, "Enter a message."),
         (StegError::EmptyPassword, "Enter a password."),
+        (StegError::Internal, "Something went wrong. Please try again."),
     ];
     for (err, expected) in &cases {
         match err {
@@ -219,8 +232,10 @@ fn error_display_strings() {
             | StegError::Unsupported
             | StegError::TooSmall
             | StegError::TooLong(_)
+            | StegError::TooLongBytes(_)
             | StegError::EmptyMessage
-            | StegError::EmptyPassword => {}
+            | StegError::EmptyPassword
+            | StegError::Internal => {}
         }
         assert_eq!(err.to_string(), *expected);
     }

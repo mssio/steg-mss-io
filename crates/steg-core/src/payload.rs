@@ -77,8 +77,8 @@ pub fn hide_core(image: &[u8], message: &str, password: &str) -> Result<Hidden, 
     if password.is_empty() {
         return Err(StegError::EmptyPassword);
     }
-    getrandom::fill(&mut salt).map_err(|_| StegError::NotFound)?;
-    getrandom::fill(&mut nonce).map_err(|_| StegError::NotFound)?;
+    getrandom::fill(&mut salt).map_err(|_| StegError::Internal)?;
+    getrandom::fill(&mut nonce).map_err(|_| StegError::Internal)?;
     hide_with(image, message, password, DEFAULT_ENCODER, salt, nonce)
 }
 
@@ -104,8 +104,12 @@ pub fn hide_with(
     if m < 1 {
         return Err(StegError::TooSmall);
     }
-    if message.chars().count() > MAX_CHARS || message.len() as i64 > m {
-        return Err(StegError::TooLong(m.min(MAX_CHARS as i64) as u32));
+    let char_limit = m.min(MAX_CHARS as i64) as u32;
+    if message.chars().count() > char_limit as usize {
+        return Err(StegError::TooLong(char_limit));
+    }
+    if message.len() as i64 > m {
+        return Err(StegError::TooLongBytes(m as u32));
     }
 
     let (seed, key) = derive(password, &salt);
@@ -115,7 +119,7 @@ pub fn hide_with(
             &Nonce::from(nonce),
             Payload { msg: message.as_bytes(), aad: &aad(&salt) },
         )
-        .map_err(|_| StegError::NotFound)?;
+        .map_err(|_| StegError::Internal)?;
 
     let mut header = vec![VERSION];
     header.extend_from_slice(&salt);

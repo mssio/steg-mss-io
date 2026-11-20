@@ -119,7 +119,7 @@ function HideStudio() {
     blocker =
       capAssessment.chars > capacityMax.chars
         ? `This image can hold at most ${capacityMax.chars} characters.`
-        : `This image can hold at most ${capacityMax.bytes} bytes.`
+        : `This message is too long for this image (max ${capacityMax.bytes} bytes).`
   }
   else if (!password) blocker = 'Set a password.'
 
