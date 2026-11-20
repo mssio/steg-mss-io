@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react'
+import { DiffToggle } from '@/components/DiffToggle'
 import { Hero } from '@/components/Hero'
 import { HidePanel, HideButton } from '@/components/HidePanel'
 import { HideResultCard } from '@/components/HideResultCard'
 import { ImageStage } from '@/components/ImageStage'
 import { ModeSwitch } from '@/components/ModeSwitch'
 import { PrivacyBadge } from '@/components/PrivacyBadge'
+import { RevealButton, RevealPanel } from '@/components/RevealPanel'
+import { RevealedMessage } from '@/components/RevealedMessage'
 import { StickyActionBar } from '@/components/StickyActionBar'
 import { useLoadedImage } from '@/hooks/useLoadedImage'
 import { useObjectUrl } from '@/hooks/useObjectUrl'
 import { useRun } from '@/hooks/useRun'
 import { codePoints, stegFileName, utf8Bytes } from '@/lib/format'
-import { capacity, hide } from '@/lib/steg-client'
+import { capacity, diffPreview, hide, reveal } from '@/lib/steg-client'
 import type { HideOutput } from '@/lib/steg-types'
 
 export type StudioMode = 'hide' | 'reveal'
@@ -47,7 +50,7 @@ export function Studio({ mode }: { mode: StudioMode }) {
 
       {/* Different component types, so switching modes unmounts the other side
           and any work in flight there is dropped. */}
-      {mode === 'hide' ? <HideStudio /> : <RevealPlaceholder />}
+      {mode === 'hide' ? <HideStudio /> : <RevealStudio />}
     </div>
   )
 }
@@ -65,19 +68,24 @@ function HideStudio() {
   const [password, setPassword] = useState('')
   const cap = useRun<Tagged<number>>()
   const job = useRun<Tagged<HideOutput>>()
+  const diff = useRun<Tagged<Blob>>()
+  /** The result the difference view is switched on for (so a new result starts with it off). */
+  const [diffFor, setDiffFor] = useState<Blob | null>(null)
   const { run: runCapacity, reset: resetCapacity } = cap
   const { reset: resetJob } = job
+  const { reset: resetDiff } = diff
 
   // A new (or no) photo: drop any result or work in flight, and measure it.
   useEffect(() => {
     resetJob()
+    resetDiff()
     if (!image) {
       resetCapacity()
       return
     }
     const source = image.blob
     runCapacity(async () => ({ value: await capacity(source), source }))
-  }, [image, resetJob, resetCapacity, runCapacity])
+  }, [image, resetJob, resetDiff, resetCapacity, runCapacity])
 
   const current = image?.blob
   const capacityMax = cap.status === 'done' && cap.result && cap.result.source === current ? cap.result.value : null
@@ -86,6 +94,13 @@ function HideStudio() {
   const output = job.status === 'done' && job.result && job.result.source === current ? job.result.value : null
   const working = job.status === 'running'
   const resultUrl = useObjectUrl(output?.blob)
+
+  // The difference image is computed once per result and kept while it stands.
+  const diffOn = output !== null && diffFor === output.blob
+  const diffBlob = diff.status === 'done' && diff.result && output && diff.result.source === output.blob ? diff.result.value : null
+  const diffUrl = useObjectUrl(diffBlob)
+  const diffLoading = diffOn && diff.status === 'running'
+  const diffError = diffOn && diff.status === 'error' ? (diff.error ?? null) : null
 
   const chars = codePoints(message)
   const bytes = utf8Bytes(message)
@@ -121,10 +136,36 @@ function HideStudio() {
     clear()
   }
 
+  // The photo no longer holds what the box says: drop the result (and its
+  // difference view) rather than offer a download that doesn't match.
+  function onMessage(value: string) {
+    setMessage(value)
+    if (job.status !== 'idle') resetJob()
+    if (diff.status !== 'idle') resetDiff()
+    setDiffFor(null)
+  }
+
+  function onToggleDiff() {
+    if (!output || !image) return
+    if (diffOn) {
+      setDiffFor(null)
+      return
+    }
+    setDiffFor(output.blob)
+    const cached = diff.status === 'done' && diff.result?.source === output.blob
+    if (cached || diff.status === 'running') return
+    const original = image.blob
+    const stego = output.blob
+    diff.run(async () => ({ value: await diffPreview(original, stego), source: stego }))
+  }
+
   function onHide() {
     if (!image || blocker !== null || working) return
     const source = image.blob
     const typed = password
+    // Any difference view belongs to the previous result.
+    resetDiff()
+    setDiffFor(null)
     job.run(async () => {
       try {
         return { value: await hide(source, message, typed), source }
@@ -148,6 +189,8 @@ function HideStudio() {
               ? { url: resultUrl, format: output.mime === 'image/png' ? 'PNG' : 'JPEG', size: output.blob.size }
               : null
           }
+          diffUrl={diffOn ? diffUrl : null}
+          tools={<DiffToggle on={diffOn} loading={diffLoading} error={diffError} onToggle={onToggleDiff} />}
           working={working}
           error={loadError ?? capacityError}
           onFile={(file) => loadImage(file, file.name)}
@@ -158,7 +201,7 @@ function HideStudio() {
 
         <HidePanel
           message={message}
-          onMessage={setMessage}
+          onMessage={onMessage}
           password={password}
           onPassword={setPassword}
           chars={chars}
@@ -189,11 +232,87 @@ function HideStudio() {
   )
 }
 
-// Task 8 builds the Reveal studio.
-function RevealPlaceholder() {
+function RevealStudio() {
+  const { image, load, clear } = useLoadedImage()
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [password, setPassword] = useState('')
+  const job = useRun<Tagged<string>>()
+  const { reset: resetJob } = job
+
+  // A new (or no) photo: drop any message or work in flight.
+  useEffect(() => {
+    resetJob()
+  }, [image, resetJob])
+
+  const current = image?.blob
+  const message = job.status === 'done' && job.result && job.result.source === current ? job.result.value : null
+  const working = job.status === 'running'
+  const error = job.status === 'error' ? (job.error ?? null) : null
+
+  let blocker: string | null = null
+  if (!image) blocker = 'Choose a photo to start.'
+  else if (!password) blocker = 'Enter the password.'
+
+  async function loadImage(blob: Blob, name: string) {
+    setLoadError(null)
+    try {
+      await load(blob, name)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Couldn’t open that file.')
+    }
+  }
+
+  function onClear() {
+    setLoadError(null)
+    clear()
+  }
+
+  function onReveal() {
+    if (!image || blocker !== null || working) return
+    const source = image.blob
+    const typed = password
+    job.run(async () => {
+      try {
+        return { value: await reveal(source, typed), source }
+      } finally {
+        // Never keep the password around after a run, success or failure.
+        setPassword((now) => (now === typed ? '' : now))
+      }
+    })
+  }
+
   return (
-    <div className="crop-marks mt-6 grid aspect-[4/3] place-items-center rounded-xl border border-dashed border-border-strong bg-card/40 sm:mt-8 sm:aspect-[16/7]">
-      <p className="readout text-muted-foreground">Reveal · coming next</p>
+    <div className="mt-6 sm:mt-8">
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-12">
+        <ImageStage
+          image={image}
+          result={null}
+          working={working}
+          workingLabel="Decoding"
+          error={loadError}
+          onFile={(file) => loadImage(file, file.name)}
+          onSample={loadImage}
+          onError={setLoadError}
+          onClear={onClear}
+        />
+
+        <RevealPanel
+          password={password}
+          onPassword={setPassword}
+          blocker={blocker}
+          working={working}
+          error={error}
+          quiet={message !== null}
+          onReveal={onReveal}
+        >
+          {/* Clear wipes the message from state, not just from view. */}
+          <RevealedMessage message={message} onClear={resetJob} />
+        </RevealPanel>
+      </div>
+
+      <StickyActionBar>
+        <RevealButton disabled={blocker !== null || working} working={working} onClick={onReveal} />
+      </StickyActionBar>
     </div>
   )
 }

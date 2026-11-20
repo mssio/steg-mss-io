@@ -299,6 +299,24 @@
   }
 }
 
+@layer components {
+  /* A revealed message develops a character at a time (delay set inline). */
+  .type-in {
+    animation: type-in 260ms var(--ease-darkroom) both;
+  }
+
+  @keyframes type-in {
+    from {
+      opacity: 0;
+      filter: blur(3px);
+    }
+    to {
+      opacity: 1;
+      filter: none;
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -307,5 +325,10 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Shown at once: per-character delays must not hold the text back. */
+  .type-in {
+    animation: none !important;
   }
 }

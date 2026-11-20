@@ -10,20 +10,29 @@ const HINT: Record<Strength, { label: string; note: string; bars: number; tone: 
   strong: { label: 'Strong', note: 'Keep it safe: it is the only key.', bars: 3, tone: 'bg-foreground/80' },
 }
 
-/** Password with show/hide, a simple strength hint, and a passphrase generator. */
+/**
+ * Password with show/hide. For setting a password (`generator`, the default)
+ * it adds a simple strength hint and a passphrase generator; for entering an
+ * existing one it shows neither.
+ */
 export function PasswordField({
   id,
   value,
   onChange,
   disabled,
+  generator = true,
+  onEnter,
 }: {
   id: string
   value: string
   onChange: (value: string) => void
   disabled?: boolean
+  generator?: boolean
+  /** Called on Enter in the field (e.g. to submit). */
+  onEnter?: () => void
 }) {
   const [visible, setVisible] = useState(false)
-  const hint = value ? HINT[strength(value)] : null
+  const hint = generator && value ? HINT[strength(value)] : null
 
   async function generate() {
     const phrase = generatePassphrase()
@@ -50,13 +59,19 @@ export function PasswordField({
             type={visible ? 'text' : 'password'}
             value={value}
             onChange={(e) => onChange(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && onEnter && !e.nativeEvent.isComposing) {
+                e.preventDefault()
+                onEnter()
+              }
+            }}
             disabled={disabled}
-            autoComplete="new-password"
+            autoComplete={generator ? 'new-password' : 'off'}
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
             aria-describedby={`${id}-hint`}
-            placeholder="Something only the recipient knows"
+            placeholder={generator ? 'Something only the recipient knows' : 'The password it was hidden with'}
             className="h-11 w-full rounded-lg border border-input bg-transparent pr-11 pl-3 font-mono text-sm transition-colors outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring disabled:opacity-50 dark:bg-input/15"
           />
           <button
@@ -74,15 +89,17 @@ export function PasswordField({
             )}
           </button>
         </div>
-        <button
-          type="button"
-          onClick={generate}
-          disabled={disabled}
-          className="inline-flex h-11 items-center gap-2 rounded-lg border border-border-strong px-3.5 text-sm transition-colors hover:border-foreground/40 hover:bg-muted disabled:opacity-50"
-        >
-          <DicesIcon aria-hidden="true" strokeWidth={1.75} className="size-4 text-primary" />
-          Generate
-        </button>
+        {generator ? (
+          <button
+            type="button"
+            onClick={generate}
+            disabled={disabled}
+            className="inline-flex h-11 items-center gap-2 rounded-lg border border-border-strong px-3.5 text-sm transition-colors hover:border-foreground/40 hover:bg-muted disabled:opacity-50"
+          >
+            <DicesIcon aria-hidden="true" strokeWidth={1.75} className="size-4 text-primary" />
+            Generate
+          </button>
+        ) : null}
       </div>
 
       <div id={`${id}-hint`} className="flex min-h-4 items-center gap-2.5 text-xs text-muted-foreground">
@@ -100,8 +117,10 @@ export function PasswordField({
               <span className="text-foreground">{hint.label}.</span> {hint.note}
             </span>
           </>
-        ) : (
+        ) : generator ? (
           <span>Used exactly as typed. Generate one for six random words.</span>
+        ) : (
+          <span>Exactly as it was typed when hiding: spaces and case count.</span>
         )}
       </div>
     </div>

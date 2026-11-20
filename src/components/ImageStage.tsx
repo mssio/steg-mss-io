@@ -1,4 +1,6 @@
+import type { ReactNode } from 'react'
 import { XIcon } from 'lucide-react'
+import { CompareSlider } from '@/components/CompareSlider'
 import { Dropzone } from '@/components/Dropzone'
 import { SampleChips } from '@/components/SampleChips'
 import { Scanline } from '@/components/Scanline'
@@ -19,11 +21,17 @@ function caption(width: number, height: number, format: string, size: number) {
   return `${dims}${format} · ${formatBytes(size)}`
 }
 
-/** The photo: an empty dropzone, then a preview with a technical caption. */
+/**
+ * The photo: an empty dropzone, then a preview with a technical caption.
+ * After a hide, the preview becomes a before/after compare slider.
+ */
 export function ImageStage({
   image,
   result,
+  diffUrl,
+  tools,
   working,
+  workingLabel = 'Encoding',
   error,
   onFile,
   onSample,
@@ -31,9 +39,15 @@ export function ImageStage({
   onClear,
 }: {
   image: LoadedImage | null
-  /** The output photo once a hide has finished; shown instead of the original. */
+  /** The output photo once a hide has finished; compared against the original. */
   result: StageResult | null
+  /** The amplified difference image, shown on the "after" side when set. */
+  diffUrl?: string | null
+  /** Controls shown under the frame (the difference toggle). */
+  tools?: ReactNode
   working: boolean
+  /** Readout on the photo while working. */
+  workingLabel?: string
   error: string | null
   onFile: (file: File) => void
   onSample: (blob: Blob, name: string) => Promise<void>
@@ -53,38 +67,41 @@ export function ImageStage({
           dragging && 'border-primary',
         )}
       >
-        {image && shown ? (
+        {image && result ? (
+          <CompareSlider
+            before={image.url}
+            after={diffUrl ?? result.url}
+            label="Compare the original with your photo"
+            afterLabel={diffUrl ? 'Difference ×8' : 'With message'}
+          />
+        ) : image && shown ? (
           <>
             <img
               src={shown.url}
-              alt={result ? 'Your photo, with the message hidden in it' : 'Your photo'}
+              alt="Your photo"
               className={cn(
                 'absolute inset-0 size-full object-contain p-3 transition-opacity duration-200 sm:p-5',
                 working && 'opacity-80',
               )}
             />
             {working ? <Scanline /> : null}
-            {result ? (
-              <p className="readout absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-background/80 px-2.5 py-1 text-primary backdrop-blur-sm sm:top-4 sm:left-4">
-                <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
-                Message hidden
-              </p>
-            ) : null}
             {working ? (
               <p className="readout absolute top-3 right-3 rounded-full bg-background/80 px-2.5 py-1 text-foreground backdrop-blur-sm sm:top-4 sm:right-4">
-                Encoding
+                {workingLabel}
               </p>
-            ) : null}
-            {dragging ? (
-              <div className="absolute inset-0 grid place-items-center bg-background/70 backdrop-blur-sm">
-                <p className="font-display text-[2rem]">Let go to replace it</p>
-              </div>
             ) : null}
           </>
         ) : (
           <Dropzone onFile={onFile} />
         )}
+        {image && dragging ? (
+          <div className="absolute inset-0 z-10 grid place-items-center bg-background/70 backdrop-blur-sm">
+            <p className="font-display text-[2rem]">Let go to replace it</p>
+          </div>
+        ) : null}
       </div>
+
+      {image && result && tools ? tools : null}
 
       {image && shown ? (
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
