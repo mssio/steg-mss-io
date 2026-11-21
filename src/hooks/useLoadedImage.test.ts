@@ -144,4 +144,57 @@ describe('createImageLoader', () => {
     expect(h.revoked).toEqual(['blob:test/1'])
     expect(h.states.length).toBe(1)
   })
+
+  test('loadFrom() resolving after a direct load() does not replace it', async () => {
+    const sample = deferred<{ blob: Blob; name: string }>()
+    const h = makeHarness()
+
+    const pSample = h.loader.loadFrom(() => sample.promise)
+    await h.loader.load(new Blob([PNG_HEAD]), 'dropped.png')
+    expect(h.last()).toMatchObject({ name: 'dropped.png', format: 'PNG', url: 'blob:test/1' })
+
+    sample.resolve({ blob: new Blob([JPEG_HEAD]), name: 'landscape.jpg' })
+    await expect(pSample).resolves.toBeUndefined()
+
+    expect(h.last()).toMatchObject({ name: 'dropped.png', format: 'PNG', url: 'blob:test/1' })
+    expect(h.created).toEqual(['blob:test/1'])
+    expect(h.revoked).toEqual([])
+  })
+
+  test('two loadFrom() calls resolving out of order let the later-started one win', async () => {
+    const first = deferred<{ blob: Blob; name: string }>()
+    const second = deferred<{ blob: Blob; name: string }>()
+    const h = makeHarness()
+
+    const p1 = h.loader.loadFrom(() => first.promise)
+    const p2 = h.loader.loadFrom(() => second.promise)
+
+    second.resolve({ blob: new Blob([PNG_HEAD]), name: 'still-life.jpg' })
+    await p2
+    expect(h.last()).toMatchObject({ name: 'still-life.jpg', format: 'PNG', url: 'blob:test/1' })
+
+    first.resolve({ blob: new Blob([JPEG_HEAD]), name: 'landscape.jpg' })
+    await expect(p1).resolves.toBeUndefined()
+
+    expect(h.last()).toMatchObject({ name: 'still-life.jpg', format: 'PNG', url: 'blob:test/1' })
+    expect(h.created).toEqual(['blob:test/1'])
+  })
+
+  test('superseded loadFrom() source rejection is swallowed while active rejection throws', async () => {
+    const first = deferred<{ blob: Blob; name: string }>()
+    const h = makeHarness()
+
+    const p1 = h.loader.loadFrom(() => first.promise)
+    await h.loader.load(new Blob([PNG_HEAD]), 'newer.png')
+
+    first.reject(new Error('network error'))
+    await expect(p1).resolves.toBeUndefined()
+    expect(h.last()).toMatchObject({ name: 'newer.png', format: 'PNG', url: 'blob:test/1' })
+
+    await expect(
+      h.loader.loadFrom(async () => {
+        throw new Error('active failure')
+      }),
+    ).rejects.toThrow('active failure')
+  })
 })

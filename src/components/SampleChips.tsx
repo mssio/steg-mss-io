@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import type { ImageSource } from '@/hooks/useLoadedImage'
 import { cn } from '@/lib/utils'
 
 const SAMPLES = [
@@ -7,28 +8,39 @@ const SAMPLES = [
   { file: 'street.jpg', label: 'Street' },
 ] as const
 
+const SAMPLE_LOAD_ERROR = 'Couldn’t load the sample. Try again.'
+
 /** "Try a sample": loads one of the bundled photos (same origin). */
 export function SampleChips({
   onPick,
-  onError,
   current,
 }: {
-  onPick: (blob: Blob, name: string) => Promise<void>
-  onError: (message: string) => void
+  onPick: (source: ImageSource) => Promise<void>
   current?: string
 }) {
   const [busy, setBusy] = useState<string | null>(null)
+  const clickSeq = useRef(0)
 
   async function pick(file: string) {
+    const seq = ++clickSeq.current
     setBusy(file)
     try {
-      const res = await fetch(`/samples/${file}`)
-      if (!res.ok) throw new Error()
-      await onPick(await res.blob(), file)
-    } catch (err) {
-      onError(err instanceof Error && err.message ? err.message : 'Couldn’t load the sample. Try again.')
+      await onPick(async () => {
+        let res: Response
+        try {
+          res = await fetch(`/samples/${file}`)
+        } catch {
+          throw new Error(SAMPLE_LOAD_ERROR)
+        }
+        if (!res.ok) throw new Error(SAMPLE_LOAD_ERROR)
+        try {
+          return { blob: await res.blob(), name: file }
+        } catch {
+          throw new Error(SAMPLE_LOAD_ERROR)
+        }
+      })
     } finally {
-      setBusy(null)
+      if (clickSeq.current === seq) setBusy(null)
     }
   }
 

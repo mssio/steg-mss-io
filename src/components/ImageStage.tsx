@@ -5,7 +5,7 @@ import { Dropzone } from '@/components/Dropzone'
 import { SampleChips } from '@/components/SampleChips'
 import { Scanline } from '@/components/Scanline'
 import { useFileDrop } from '@/hooks/useFileDrop'
-import type { LoadedImage } from '@/hooks/useLoadedImage'
+import type { ImageSource, LoadedImage } from '@/hooks/useLoadedImage'
 import { formatBytes } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -35,7 +35,6 @@ export function ImageStage({
   error,
   onFile,
   onSample,
-  onError,
   onClear,
 }: {
   image: LoadedImage | null
@@ -50,8 +49,7 @@ export function ImageStage({
   workingLabel?: string
   error: string | null
   onFile: (file: File) => void
-  onSample: (blob: Blob, name: string) => Promise<void>
-  onError: (message: string) => void
+  onSample: (source: ImageSource) => Promise<void>
   onClear: () => void
 }) {
   const { dragging, dropProps } = useFileDrop(onFile)
@@ -131,7 +129,7 @@ export function ImageStage({
         </p>
       ) : null}
 
-      <SampleChips onPick={onSample} onError={onError} current={image?.name} />
+      <SampleChips onPick={onSample} current={image?.name} />
     </section>
   )
 }

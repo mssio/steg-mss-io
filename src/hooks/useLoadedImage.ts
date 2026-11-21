@@ -35,17 +35,20 @@ export interface ImageLoaderDeps {
   onChange: (image: LoadedImage | null) => void
 }
 
+export type ImageSource = () => Promise<{ blob: Blob; name: string }>
+
 export interface ImageLoader {
   load(file: Blob, name: string): Promise<void>
+  loadFrom(source: ImageSource): Promise<void>
   clear(): void
   dispose(): void
 }
 
 /**
  * Pure generation-guarded image loader behind `useLoadedImage`, extracted so it
- * can be tested without a DOM. Every `load`, `clear`, and `dispose` bumps the
- * generation counter; superseded or post-unmount loads return quietly without
- * throwing stale format errors or allocating orphaned object URLs.
+ * can be tested without a DOM. Every `load`, `loadFrom`, `clear`, and `dispose`
+ * bumps the generation counter; superseded or post-unmount loads return quietly
+ * without throwing stale errors or allocating orphaned object URLs.
  */
 export function createImageLoader(deps: ImageLoaderDeps): ImageLoader {
   let generation = 0
@@ -57,30 +60,52 @@ export function createImageLoader(deps: ImageLoaderDeps): ImageLoader {
     deps.onChange(next)
   }
 
+  async function finishLoad(gen: number, file: Blob, name: string): Promise<void> {
+    let head: Uint8Array
+    try {
+      head = await deps.readHead(file)
+    } catch (err) {
+      if (gen !== generation) return
+      throw err
+    }
+    if (gen !== generation) return
+    const format = sniffFormat(head)
+    if (!format) throw new Error(UNSUPPORTED_FORMAT)
+    let dims: { width: number; height: number }
+    try {
+      dims = await deps.readDimensions(file)
+    } catch (err) {
+      if (gen !== generation) return
+      throw err
+    }
+    if (gen !== generation) return // a newer load, clear, or unmount won
+    swap({
+      blob: file,
+      name,
+      url: deps.createObjectURL(file),
+      width: dims.width,
+      height: dims.height,
+      format,
+      size: file.size,
+    })
+  }
+
   return {
-    async load(file: Blob, name: string): Promise<void> {
+    load(file: Blob, name: string): Promise<void> {
       const gen = ++generation
-      let head: Uint8Array
+      return finishLoad(gen, file, name)
+    },
+    async loadFrom(source: ImageSource): Promise<void> {
+      const gen = ++generation
+      let resolved: { blob: Blob; name: string }
       try {
-        head = await deps.readHead(file)
+        resolved = await source()
       } catch (err) {
         if (gen !== generation) return
         throw err
       }
       if (gen !== generation) return
-      const format = sniffFormat(head)
-      if (!format) throw new Error(UNSUPPORTED_FORMAT)
-      const { width, height } = await deps.readDimensions(file)
-      if (gen !== generation) return // a newer load, clear, or unmount won
-      swap({
-        blob: file,
-        name,
-        url: deps.createObjectURL(file),
-        width,
-        height,
-        format,
-        size: file.size,
-      })
+      return finishLoad(gen, resolved.blob, resolved.name)
     },
     clear() {
       generation++
@@ -114,5 +139,5 @@ export function useLoadedImage() {
 
   useEffect(() => () => loader.dispose(), [loader])
 
-  return { image, load: loader.load, clear: loader.clear }
+  return { image, load: loader.load, loadFrom: loader.loadFrom, clear: loader.clear }
 }

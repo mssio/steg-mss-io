@@ -9,7 +9,7 @@ import { PrivacyBadge } from '@/components/PrivacyBadge'
 import { RevealButton, RevealPanel } from '@/components/RevealPanel'
 import { RevealedMessage } from '@/components/RevealedMessage'
 import { StickyActionBar } from '@/components/StickyActionBar'
-import { useLoadedImage } from '@/hooks/useLoadedImage'
+import { useLoadedImage, type ImageSource } from '@/hooks/useLoadedImage'
 import { useObjectUrl } from '@/hooks/useObjectUrl'
 import { useRun } from '@/hooks/useRun'
 import { capacityState, codePoints, stegFileName } from '@/lib/format'
@@ -67,7 +67,7 @@ interface Tagged<T> {
 }
 
 function HideStudio() {
-  const { image, load, clear } = useLoadedImage()
+  const { image, load, loadFrom, clear } = useLoadedImage()
   const [loadError, setLoadError] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [password, setPassword] = useState('')
@@ -141,6 +141,15 @@ function HideStudio() {
     }
   }
 
+  async function loadSample(source: ImageSource) {
+    setLoadError(null)
+    try {
+      await loadFrom(source)
+    } catch (err) {
+      setLoadError(err instanceof Error && err.message ? err.message : 'Couldn’t load the sample. Try again.')
+    }
+  }
+
   function onClear() {
     setLoadError(null)
     clear()
@@ -205,8 +214,7 @@ function HideStudio() {
           working={working}
           error={loadError ?? capacityError}
           onFile={(file) => loadImage(file, file.name)}
-          onSample={loadImage}
-          onError={setLoadError}
+          onSample={loadSample}
           onClear={onClear}
         />
 
@@ -242,7 +250,7 @@ function HideStudio() {
 }
 
 function RevealStudio() {
-  const { image, load, clear } = useLoadedImage()
+  const { image, load, loadFrom, clear } = useLoadedImage()
   const [loadError, setLoadError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const job = useRun<Tagged<string>>()
@@ -268,6 +276,15 @@ function RevealStudio() {
       await load(blob, name)
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Couldn’t open that file.')
+    }
+  }
+
+  async function loadSample(source: ImageSource) {
+    setLoadError(null)
+    try {
+      await loadFrom(source)
+    } catch (err) {
+      setLoadError(err instanceof Error && err.message ? err.message : 'Couldn’t load the sample. Try again.')
     }
   }
 
@@ -300,8 +317,7 @@ function RevealStudio() {
           workingLabel="Decoding"
           error={loadError}
           onFile={(file) => loadImage(file, file.name)}
-          onSample={loadImage}
-          onError={setLoadError}
+          onSample={loadSample}
           onClear={onClear}
         />
 
