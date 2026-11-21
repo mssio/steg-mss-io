@@ -1,0 +1,9 @@
+export const securityHeaders: Record<string, string> = {
+  'Content-Security-Policy':
+    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+  'Referrer-Policy': 'no-referrer',
+  'X-Content-Type-Options': 'nosniff',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+}
+
+export const immutableCache = 'public, max-age=31536000, immutable'

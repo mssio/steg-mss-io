@@ -1,0 +1,16 @@
+// Assets-only Cloudflare Worker config (no Worker script, so public/_headers applies to every response).
+// Per Cloudflare Workers static assets docs, `not_found_handling: "404-page"` serves the nearest
+// `404.html` with HTTP 404 for requests that do not match an asset (unlike `single-page-application`,
+// which returns 200 index.html even for missing /assets/*). Known SPA routes are matched first by
+// explicit 200 proxy rules in public/_redirects, while unknown routes render the app's NotFound page
+// from dist/404.html (copied from dist/index.html by `bun run build`) with HTTP 404, and missing
+// /assets/* also return HTTP 404 (never 200).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "steg-mss-io",
+  "compatibility_date": "2026-11-20",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  }
+}

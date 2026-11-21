@@ -1,0 +1,132 @@
+import { useState } from 'react'
+import { DicesIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
+import { toast } from 'sonner'
+import { generatePassphrase, strength, type Strength } from '@/lib/passphrase'
+import { cn } from '@/lib/utils'
+
+const HINT: Record<Strength, { label: string; note: string; bars: number; tone: string }> = {
+  weak: { label: 'Weak', note: 'Make it longer, or generate one.', bars: 1, tone: 'bg-destructive' },
+  fair: { label: 'Fair', note: 'A few more words would help.', bars: 2, tone: 'bg-primary' },
+  strong: { label: 'Strong', note: 'Keep it safe: it is the only key.', bars: 3, tone: 'bg-foreground/80' },
+}
+
+/**
+ * Password with show/hide. For setting a password (`generator`, the default)
+ * it adds a simple strength hint and a passphrase generator; for entering an
+ * existing one it shows neither.
+ */
+export function PasswordField({
+  id,
+  value,
+  onChange,
+  disabled,
+  generator = true,
+  onEnter,
+}: {
+  id: string
+  value: string
+  onChange: (value: string) => void
+  disabled?: boolean
+  generator?: boolean
+  /** Called on Enter in the field (e.g. to submit). */
+  onEnter?: () => void
+}) {
+  const [visible, setVisible] = useState(false)
+  const hint = generator && value ? HINT[strength(value)] : null
+
+  async function generate() {
+    if (disabled) return
+    const phrase = generatePassphrase()
+    onChange(phrase)
+    setVisible(true)
+    try {
+      await navigator.clipboard.writeText(phrase)
+      toast.success('Passphrase copied to the clipboard', {
+        description: 'Keep it somewhere safe. You need it to reveal the message.',
+      })
+    } catch {
+      toast('Passphrase generated', {
+        description: 'Copy it now: the field clears after hiding.',
+      })
+    }
+  }
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-stretch gap-2">
+        <div className="relative flex-1">
+          <input
+            id={id}
+            type={visible ? 'text' : 'password'}
+            value={value}
+            onChange={(e) => {
+              if (!disabled) onChange(e.currentTarget.value)
+            }}
+            onKeyDown={(e) => {
+              if (!disabled && e.key === 'Enter' && onEnter && !e.nativeEvent.isComposing) {
+                e.preventDefault()
+                onEnter()
+              }
+            }}
+            disabled={disabled}
+            autoComplete={generator ? 'new-password' : 'off'}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            aria-describedby={`${id}-hint`}
+            placeholder={generator ? 'Something only the recipient knows' : 'The password it was hidden with'}
+            className="h-11 w-full rounded-lg border border-input bg-transparent pr-11 pl-3 font-mono text-sm transition-colors placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-60 dark:bg-input/15"
+          />
+          <button
+            type="button"
+            onClick={() => setVisible((v) => !v)}
+            disabled={disabled}
+            aria-label={visible ? 'Hide password' : 'Show password'}
+            aria-pressed={visible}
+            aria-controls={id}
+            className="absolute inset-y-1 right-1 grid w-9 place-items-center rounded-md text-muted-foreground transition-colors enabled:hover:bg-muted enabled:hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {visible ? (
+              <EyeOffIcon aria-hidden="true" strokeWidth={1.75} className="size-4" />
+            ) : (
+              <EyeIcon aria-hidden="true" strokeWidth={1.75} className="size-4" />
+            )}
+          </button>
+        </div>
+        {generator ? (
+          <button
+            type="button"
+            onClick={generate}
+            disabled={disabled}
+            className="inline-flex h-11 items-center gap-2 rounded-lg border border-border-strong px-3.5 text-sm transition-colors enabled:hover:border-foreground/40 enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <DicesIcon aria-hidden="true" strokeWidth={1.75} className="size-4 text-primary" />
+            Generate
+          </button>
+        ) : null}
+      </div>
+
+      <div id={`${id}-hint`} className="flex min-h-4 items-center gap-2.5 text-xs text-muted-foreground">
+        {hint ? (
+          <>
+            <span aria-hidden="true" className="flex gap-1">
+              {[1, 2, 3].map((n) => (
+                <span
+                  key={n}
+                  className={cn('h-1 w-5 rounded-full transition-colors duration-200', n <= hint.bars ? hint.tone : 'bg-muted')}
+                />
+              ))}
+            </span>
+            <span>
+              <span className="text-foreground">{hint.label}.</span> {hint.note}
+            </span>
+          </>
+        ) : generator ? (
+          <span>Used exactly as typed. Generate one for six random words.</span>
+        ) : (
+          <span>Exactly as it was typed when hiding: spaces and case count.</span>
+        )}
+      </div>
+    </div>
+  )
+}
