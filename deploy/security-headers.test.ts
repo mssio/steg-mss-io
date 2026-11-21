@@ -150,18 +150,16 @@ describe('deploy config parity', () => {
     const raw = readFileSync(path.join(rootDir, 'vercel.json'), 'utf8')
     const config = JSON.parse(raw) as VercelConfig
 
-    expect(config.installCommand).toBeDefined()
+    expect(config.installCommand).toContain('rustup toolchain install stable')
     expect(config.installCommand).toContain('--target wasm32-unknown-unknown')
+    expect(config.installCommand).toContain('rustup default stable')
     expect(config.installCommand).toContain('cargo install wasm-pack --version 0.15.1 --locked')
-    expect(config.installCommand).toContain('. "$HOME/.cargo/env"')
     expect(config.installCommand).toContain('bun install --frozen-lockfile')
+    expect(config.installCommand).not.toContain('sh.rustup.rs')
+    expect(config.installCommand).not.toContain('.cargo/env')
 
-    expect(config.buildCommand).toBeDefined()
-    expect(config.buildCommand).toContain('. "$HOME/.cargo/env"')
     expect(config.buildCommand).toContain('bun run build')
-    expect(config.buildCommand!.indexOf('. "$HOME/.cargo/env"')).toBeLessThan(
-      config.buildCommand!.indexOf('bun run build'),
-    )
+    expect(config.buildCommand).not.toContain('.cargo/env')
 
     expect(config.outputDirectory).toBe('dist')
   })
