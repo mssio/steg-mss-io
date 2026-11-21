@@ -5,7 +5,7 @@ use crate::blocks::{
 };
 use crate::ecc::{bits_to_bytes, bytes_to_bits, hamming_decode, hamming_encode, REDUNDANCY};
 use crate::error::StegError;
-use crate::image_io::{decode, decode_rgb, encode, encode_with_alpha, Decoded, Format};
+use crate::image_io::{decode, decode_rgb, encode, encode_with_metadata, Decoded, Format};
 use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes256Gcm, Nonce};
 use hkdf::Hkdf;
@@ -96,7 +96,7 @@ pub fn hide_with(
     if message.is_empty() {
         return Err(StegError::EmptyMessage);
     }
-    let Decoded { mut rgb, format, alpha } = decode(image, true)?;
+    let Decoded { mut rgb, format, alpha, icc_profile } = decode(image, true)?;
     let (w, h) = (rgb.width(), rgb.height());
     let grid = Grid::from_dims(w, h);
     let total = grid.total();
@@ -146,7 +146,7 @@ pub fn hide_with(
     drop(header_coded);
     drop(body_coded);
 
-    let bytes = encode_with_alpha(rgb, alpha, format)?;
+    let bytes = encode_with_metadata(rgb, alpha, icc_profile, format)?;
     Ok(Hidden {
         bytes,
         mime: format.mime().to_string(),

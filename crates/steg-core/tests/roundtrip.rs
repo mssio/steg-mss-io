@@ -66,6 +66,53 @@ fn roundtrip_rgba_png_preserves_alpha() {
 }
 
 #[test]
+fn roundtrip_preserves_icc_profile_png_and_jpeg() {
+    use image::{
+        codecs::{
+            jpeg::{JpegDecoder, JpegEncoder},
+            png::{PngDecoder, PngEncoder},
+        },
+        ExtendedColorType, ImageDecoder, ImageEncoder,
+    };
+    use std::io::Cursor;
+
+    let dummy_icc: Vec<u8> = b"DUMMY-DISPLAY-P3-ICC-PROFILE-0123456789abcdef".to_vec();
+    let img = photo(640, 480);
+    let (w, h) = img.dimensions();
+
+    // PNG with ICC profile.
+    let mut png_in = Vec::new();
+    let mut png_enc = PngEncoder::new(&mut png_in);
+    png_enc.set_icc_profile(dummy_icc.clone()).unwrap();
+    png_enc
+        .write_image(img.as_raw(), w, h, ExtendedColorType::Rgb8)
+        .unwrap();
+
+    let png_out = hide_core(&png_in, "icc png secret", PW).unwrap();
+    let mut png_dec = PngDecoder::new(Cursor::new(&png_out.bytes)).unwrap();
+    assert_eq!(png_dec.icc_profile().unwrap().as_deref(), Some(dummy_icc.as_slice()));
+    assert_eq!(reveal_core(&png_out.bytes, PW).unwrap(), "icc png secret");
+
+    // JPEG with ICC profile.
+    let mut jpg_in = Vec::new();
+    let mut jpg_enc = JpegEncoder::new_with_quality(&mut jpg_in, 90);
+    jpg_enc.set_icc_profile(dummy_icc.clone()).unwrap();
+    jpg_enc
+        .write_image(img.as_raw(), w, h, ExtendedColorType::Rgb8)
+        .unwrap();
+
+    let jpg_out = hide_core(&jpg_in, "icc jpeg secret", PW).unwrap();
+    let mut jpg_dec = JpegDecoder::new(Cursor::new(&jpg_out.bytes)).unwrap();
+    assert_eq!(jpg_dec.icc_profile().unwrap().as_deref(), Some(dummy_icc.as_slice()));
+    assert_eq!(reveal_core(&jpg_out.bytes, PW).unwrap(), "icc jpeg secret");
+
+    // diff_preview does not carry an ICC profile.
+    let diff = diff_preview_core(&png_in, &png_out.bytes).unwrap();
+    let mut diff_dec = PngDecoder::new(Cursor::new(&diff)).unwrap();
+    assert!(diff_dec.icc_profile().unwrap().is_none());
+}
+
+#[test]
 fn roundtrip_jpeg_photo() {
     let out = hide_core(&jpeg_bytes(&photo(640, 480), 90), "hello jpeg", PW).unwrap();
     assert_eq!(out.mime, "image/jpeg");

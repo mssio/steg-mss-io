@@ -9,7 +9,7 @@ use image::{
 };
 use std::io::Cursor;
 use steg_core::error::StegError;
-use steg_core::image_io::{decode, decode_rgb, encode, encode_with_alpha, Format};
+use steg_core::image_io::{decode, decode_rgb, encode, encode_with_metadata, Format};
 
 fn crc32(data: &[u8]) -> u32 {
     let mut c = 0xFFFF_FFFFu32;
@@ -89,13 +89,13 @@ fn png_alpha_roundtrip_and_orientation() {
         }
     }
 
-    let out = encode_with_alpha(dec.rgb, dec.alpha, Format::Png).unwrap();
+    let out = encode_with_metadata(dec.rgb, dec.alpha, dec.icc_profile, Format::Png).unwrap();
     let decoder = PngDecoder::new(Cursor::new(&out)).unwrap();
     assert_eq!(decoder.color_type(), ColorType::Rgba8);
     assert_eq!(decoder.dimensions(), (2, 4));
 
     // Opaque PNG still encodes as RGB8.
-    let opaque = encode_with_alpha(photo(16, 12), None, Format::Png).unwrap();
+    let opaque = encode_with_metadata(photo(16, 12), None, None, Format::Png).unwrap();
     let opaque_dec = PngDecoder::new(Cursor::new(&opaque)).unwrap();
     assert_eq!(opaque_dec.color_type(), ColorType::Rgb8);
 }
