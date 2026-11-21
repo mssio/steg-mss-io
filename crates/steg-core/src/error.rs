@@ -5,6 +5,7 @@ pub enum StegError {
     NotFound,
     TooLarge,
     Unsupported,
+    Unreadable,
     TooSmall,
     TooLong(u32),
     TooLongBytes(u32),
@@ -19,6 +20,7 @@ impl fmt::Display for StegError {
             Self::NotFound => f.write_str("No message found, or the password is wrong."),
             Self::TooLarge => f.write_str("Image is too large (max 40 megapixels)."),
             Self::Unsupported => f.write_str("Only PNG and JPEG images are supported."),
+            Self::Unreadable => f.write_str("This image couldn't be read. It may be damaged."),
             Self::TooSmall => f.write_str("This image is too small to hold a message."),
             Self::TooLong(n) => write!(f, "This image can hold at most {n} characters."),
             Self::TooLongBytes(n) => {

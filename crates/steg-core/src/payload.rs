@@ -155,13 +155,6 @@ pub fn hide_with(
     })
 }
 
-fn has_image_magic(bytes: &[u8]) -> bool {
-    matches!(
-        image::guess_format(bytes),
-        Ok(image::ImageFormat::Png) | Ok(image::ImageFormat::Jpeg)
-    )
-}
-
 pub fn reveal_core(image: &[u8], password: &str) -> Result<String, StegError> {
     if password.is_empty() {
         return Err(StegError::EmptyPassword);
@@ -169,8 +162,8 @@ pub fn reveal_core(image: &[u8], password: &str) -> Result<String, StegError> {
     let dec = match decode(image, false) {
         Ok(d) => d,
         Err(StegError::TooLarge) => return Err(StegError::TooLarge),
-        Err(_) if has_image_magic(image) => return Err(StegError::NotFound),
-        Err(e) => return Err(e),
+        Err(StegError::Unsupported) => return Err(StegError::Unsupported),
+        Err(_) => return Err(StegError::NotFound),
     };
     reveal_rgb(&dec.rgb, password).ok_or(StegError::NotFound)
 }

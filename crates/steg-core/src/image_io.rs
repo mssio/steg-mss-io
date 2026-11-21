@@ -47,7 +47,7 @@ fn load<D: ImageDecoder>(
     // Convert to RGB8 before orientation so any RGBA/16-bit intermediate is dropped
     // immediately rather than surviving rotation or outliving decode().
     let rgb = DynamicImage::from_decoder(decoder)
-        .map_err(|_| StegError::Unsupported)?
+        .map_err(|_| StegError::Unreadable)?
         .into_rgb8();
     if let Some(o) = orientation.filter(|&o| o != Orientation::NoTransforms) {
         let mut img = DynamicImage::ImageRgb8(rgb);
@@ -66,11 +66,11 @@ pub fn decode(bytes: &[u8], apply_orientation: bool) -> Result<Decoded, StegErro
     let cur = Cursor::new(bytes);
     let rgb = match format {
         Format::Png => load(
-            PngDecoder::new(cur).map_err(|_| StegError::Unsupported)?,
+            PngDecoder::new(cur).map_err(|_| StegError::Unreadable)?,
             apply_orientation,
         )?,
         Format::Jpeg => load(
-            JpegDecoder::new(cur).map_err(|_| StegError::Unsupported)?,
+            JpegDecoder::new(cur).map_err(|_| StegError::Unreadable)?,
             apply_orientation,
         )?,
     };

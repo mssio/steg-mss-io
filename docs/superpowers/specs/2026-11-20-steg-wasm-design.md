@@ -90,7 +90,7 @@ The owner asked that the choice be tested to confirm it is the best: see §6.6.
 - **Hide:** read the EXIF orientation (`ImageDecoder::orientation()`) and apply it to the pixels, so the output is upright. The output carries no EXIF.
 - **Reveal and capacity:** ignore EXIF (our output never has it; capacity is computed on the oriented dimensions for hide, so `capacity()` also applies orientation — it describes what `hide` will do).
 - Convert to RGB8 (alpha dropped).
-- Output matches the input format: PNG→PNG, JPEG→JPEG at quality 92. Unsupported formats: "Only PNG and JPEG images are supported."
+- Output matches the input format: PNG→PNG, JPEG→JPEG at quality 92. Unsupported formats: "Only PNG and JPEG images are supported." Corrupt or damaged PNG/JPEG data that fails to decode: "This image couldn't be read. It may be damaged." (mapped to the generic error on reveal, see §6.2).
 - Work in `f32` pixel buffers for embedding, clamp and round to u8 at the end.
 
 ### 6.2 Payload

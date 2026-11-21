@@ -165,9 +165,34 @@ fn capacity_no_kdf() {
 #[test]
 fn unsupported_and_corrupt() {
     assert_eq!(reveal_core(b"GIF89a....", PW).unwrap_err(), StegError::Unsupported);
-    let mut p = png_bytes(&photo(64, 64));
-    p.truncate(40);
+
+    // Truncated PNG (valid IHDR header, broken IDAT pixel data).
+    let mut p = png_bytes(&photo(640, 480));
+    p.truncate(p.len() / 2);
+    assert_eq!(capacity_core(&p).unwrap_err(), StegError::Unreadable);
+    assert_eq!(hide_core(&p, "hello", PW).unwrap_err(), StegError::Unreadable);
+    assert_eq!(diff_preview_core(&p, &p).unwrap_err(), StegError::Unreadable);
     assert_eq!(reveal_core(&p, PW).unwrap_err(), StegError::NotFound);
+
+    // Truncated JPEG (valid JPEG magic bytes, truncated mid-header/stream).
+    let mut j = jpeg_bytes(&photo(640, 480), 90);
+    j.truncate(40);
+    assert_eq!(capacity_core(&j).unwrap_err(), StegError::Unreadable);
+    assert_eq!(hide_core(&j, "hello", PW).unwrap_err(), StegError::Unreadable);
+    assert_eq!(diff_preview_core(&j, &j).unwrap_err(), StegError::Unreadable);
+    assert_eq!(reveal_core(&j, PW).unwrap_err(), StegError::NotFound);
+
+    // Corrupt JPEG with valid header/SOF but damaged scan/marker bytes (fails pixel decode).
+    let mut j_bad = jpeg_bytes(&photo(640, 480), 90);
+    let sos = j_bad
+        .windows(2)
+        .position(|w| w == [0xFF, 0xDA])
+        .expect("JPEG has SOS marker");
+    j_bad.truncate(sos + 4);
+    assert_eq!(capacity_core(&j_bad).unwrap_err(), StegError::Unreadable);
+    assert_eq!(hide_core(&j_bad, "hello", PW).unwrap_err(), StegError::Unreadable);
+    assert_eq!(diff_preview_core(&j_bad, &j_bad).unwrap_err(), StegError::Unreadable);
+    assert_eq!(reveal_core(&j_bad, PW).unwrap_err(), StegError::NotFound);
 }
 
 #[test]
@@ -222,6 +247,7 @@ fn error_display_strings() {
         (StegError::NotFound, "No message found, or the password is wrong."),
         (StegError::TooLarge, "Image is too large (max 40 megapixels)."),
         (StegError::Unsupported, "Only PNG and JPEG images are supported."),
+        (StegError::Unreadable, "This image couldn't be read. It may be damaged."),
         (StegError::TooSmall, "This image is too small to hold a message."),
         (StegError::TooLong(123), "This image can hold at most 123 characters."),
         (
@@ -237,6 +263,7 @@ fn error_display_strings() {
             StegError::NotFound
             | StegError::TooLarge
             | StegError::Unsupported
+            | StegError::Unreadable
             | StegError::TooSmall
             | StegError::TooLong(_)
             | StegError::TooLongBytes(_)
