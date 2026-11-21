@@ -71,7 +71,7 @@ This runs `bun run build` (which copies `dist/index.html` to `dist/404.html`) an
 
 ### Vercel
 
-[`vercel.json`](vercel.json) configures the full build (`installCommand`, `buildCommand`, and `outputDirectory: "dist"`), along with the security headers, immutable `/assets/*` caching, and SPA fallback rewrite (`/((?!assets/).*)` → `/index.html`, excluding `/assets/` so missing assets return 404). Because Vercel's default build image does not include Rust, `installCommand` installs the minimal Rust toolchain (`wasm32-unknown-unknown` target) and `wasm-pack` on each build before running `bun install --frozen-lockfile`, and `buildCommand` sources Cargo's environment and runs `bun run build`. Dashboard overrides are not needed — leave the Build and Install command fields un-overridden in Project Settings. Note that installing `wasm-pack` compiles it from source, which adds a few minutes per deploy.
+[`vercel.json`](vercel.json) configures the full build (`installCommand`, `buildCommand`, and `outputDirectory: "dist"`), along with the security headers, immutable `/assets/*` caching, and SPA fallback rewrite (`/((?!assets/).*)` → `/index.html`, excluding `/assets/` so missing assets return 404). Vercel's build image already ships Rust (`rustup`), so `installCommand` only adds the `wasm32-unknown-unknown` target and compiles `wasm-pack` 0.15.1 before running `bun install --frozen-lockfile`, and `buildCommand` is plain `bun run build`. Dashboard overrides are not needed — leave the Build and Install command fields un-overridden in Project Settings. Note that installing `wasm-pack` compiles it from source, which adds a few extra minutes per deploy.
 
 ### Other static hosts
 
