@@ -3,6 +3,7 @@ import {
   capacityState,
   codePoints,
   formatBytes,
+  isWellFormedUtf16,
   meterState,
   sniffFormat,
   stegFileName,
@@ -151,5 +152,39 @@ describe('sniffFormat', () => {
     expect(sniffFormat(new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]))).toBeNull()
     expect(sniffFormat(new Uint8Array([0x47, 0x49, 0x46, 0x38]))).toBeNull()
     expect(sniffFormat(new Uint8Array([]))).toBeNull()
+  })
+})
+
+describe('isWellFormedUtf16', () => {
+  const valid = ['', 'hello', 'café 漢字', '👀🔥', 'a\uD83D\uDE00b']
+  const invalid = [
+    '\uD800',
+    '\uDBFF',
+    '\uDC00',
+    '\uDFFF',
+    'a\uD800',
+    'a\uDBFF',
+    '\uDC00a',
+    '\uDC00\uD800',
+    'a\uD800b\uDC00',
+    '\uD83D\uDE00\uD800',
+  ]
+
+  test('accepts well-formed strings and rejects lone surrogates', () => {
+    for (const s of valid) expect(isWellFormedUtf16(s)).toBe(true)
+    for (const s of invalid) expect(isWellFormedUtf16(s)).toBe(false)
+  })
+
+  test('regex fallback matches native behavior when String.prototype.isWellFormed is absent', () => {
+    const proto = String.prototype as { isWellFormed?: () => boolean }
+    const saved = Object.getOwnPropertyDescriptor(proto, 'isWellFormed')
+    Object.defineProperty(proto, 'isWellFormed', { value: undefined, configurable: true, writable: true })
+    try {
+      for (const s of valid) expect(isWellFormedUtf16(s)).toBe(true)
+      for (const s of invalid) expect(isWellFormedUtf16(s)).toBe(false)
+    } finally {
+      if (saved) Object.defineProperty(proto, 'isWellFormed', saved)
+      else delete proto.isWellFormed
+    }
   })
 })

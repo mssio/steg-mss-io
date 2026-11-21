@@ -106,9 +106,10 @@ salt     16 bytes (random)           nonce   12 bytes (random)
 - Master key = PBKDF2-HMAC-SHA256(password UTF-8, salt, 600,000 iterations, 32 bytes).
 - HKDF-SHA256 (`hkdf`, IKM = master key, no salt): `info="steg-mss-io/v1/order"` → 32-byte order seed; `info="steg-mss-io/v1/aes"` → 32-byte AES key.
 - AES-256-GCM (`aes-gcm`), AAD = `version || salt`.
-- Wrong password, corrupt image, unknown version, out-of-range length and GCM failure all return one error: "No message found, or the password is wrong." Never distinguish them. Every failure after the image is decoded returns this single generic error; only the three pre-decode input checks ("Enter a password.", "Only PNG and JPEG images are supported.", and "Image is too large (max 40 megapixels).") return specific errors, as they inspect no hidden data.
+- Wrong password, corrupt image, unknown version, out-of-range length and GCM failure all return one error: "No message found, or the password is wrong." Never distinguish them. Every failure after the image is decoded returns this single generic error; only the pre-decode input checks ("Enter a password.", "The password contains a broken character. Please retype it.", "Only PNG and JPEG images are supported.", and "Image is too large (max 40 megapixels).") return specific errors, as they inspect no hidden data.
 - Message limit: 500 Unicode code points (Rust `chars().count()`; JS `[...text].length`), plus the byte cap from capacity (UTF-8). Exceeding the character limit returns "This image can hold at most N characters." (N = `min(500, M)`); exceeding only the UTF-8 byte cap returns "This message is too long for this image (max M bytes)."
 - Empty message or empty password: rejected before any work ("Enter a message." / "Enter a password.").
+- Unpaired UTF-16 surrogates in JS strings (which `wasm-bindgen` would otherwise replace lossily with U+FFFD): rejected in the client before posting to the worker ("The password contains a broken character. Please retype it." on hide/reveal; "The message contains a broken character. Please retype it." on hide).
 - Randomness (`getrandom`) or encryption failure on hide returns "Something went wrong. Please try again."
 
 ### 6.3 Bits, ECC and block layout

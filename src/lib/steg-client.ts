@@ -1,3 +1,4 @@
+import { isWellFormedUtf16 } from './format'
 import type {
   CapacityDetail,
   HideOutput,
@@ -9,6 +10,8 @@ import type {
 
 const REVEAL_FALLBACK = 'No message found, or the password is wrong.'
 const GENERIC_FALLBACK = 'Something went wrong. Please try again.'
+const BROKEN_PASSWORD = 'The password contains a broken character. Please retype it.'
+const BROKEN_MESSAGE = 'The message contains a broken character. Please retype it.'
 
 type Op = StegWorkerRequest['op']
 
@@ -120,6 +123,8 @@ export function createStegClient(spawn: () => WorkerLike): StegClient {
 
   return {
     async hide(image: Blob, message: string, password: string): Promise<HideOutput> {
+      if (!isWellFormedUtf16(password)) throw new Error(BROKEN_PASSWORD)
+      if (!isWellFormedUtf16(message)) throw new Error(BROKEN_MESSAGE)
       const buffer = await readBuffer(image, 'hide')
       const res = (await request(
         { id: nextId++, op: 'hide', image: buffer, message, password },
@@ -134,6 +139,7 @@ export function createStegClient(spawn: () => WorkerLike): StegClient {
     },
 
     async reveal(image: Blob, password: string): Promise<string> {
+      if (!isWellFormedUtf16(password)) throw new Error(BROKEN_PASSWORD)
       const buffer = await readBuffer(image, 'reveal')
       return (await request(
         { id: nextId++, op: 'reveal', image: buffer, password },

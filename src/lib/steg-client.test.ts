@@ -280,4 +280,25 @@ describe('createStegClient', () => {
     })
     expect(await pDetail).toEqual({ chars: 500, bytes: 1117 })
   })
+
+  test('rejects lone UTF-16 surrogates in password or message before spawning the worker', async () => {
+    const workers: FakeWorker[] = []
+    const client = createStegClient(() => {
+      const w = new FakeWorker()
+      workers.push(w)
+      return w
+    })
+    const blob = new Blob([new Uint8Array([1, 2, 3])])
+
+    await expect(client.hide(blob, 'hello', 'a\uD800')).rejects.toThrow(
+      'The password contains a broken character. Please retype it.',
+    )
+    await expect(client.hide(blob, 'hello\uDC00', 'valid-pass')).rejects.toThrow(
+      'The message contains a broken character. Please retype it.',
+    )
+    await expect(client.reveal(blob, 'a\uDBFF')).rejects.toThrow(
+      'The password contains a broken character. Please retype it.',
+    )
+    expect(workers).toHaveLength(0)
+  })
 })

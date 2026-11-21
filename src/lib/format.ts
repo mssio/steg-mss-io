@@ -88,6 +88,15 @@ export function capacityState(text: string, detail: CapacityLimits): CapacityAss
   }
 }
 
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/
+
+/** True when `s` contains no unpaired UTF-16 surrogates (so UTF-8 conversion is lossless). */
+export function isWellFormedUtf16(s: string): boolean {
+  const native = (s as string & { isWellFormed?: () => boolean }).isWellFormed
+  if (typeof native === 'function') return native.call(s)
+  return !LONE_SURROGATE.test(s)
+}
+
 /** The image format from its magic bytes, or null if it is neither PNG nor JPEG. */
 export function sniffFormat(head: Uint8Array): ImageFormat | null {
   const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
