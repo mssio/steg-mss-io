@@ -91,6 +91,9 @@ interface VercelHeaderEntry {
 }
 
 interface VercelConfig {
+  installCommand?: string
+  buildCommand?: string
+  outputDirectory?: string
   headers?: VercelHeaderEntry[]
   rewrites?: Array<{ source: string; destination: string }>
 }
@@ -141,6 +144,26 @@ describe('deploy config parity', () => {
       source: '/((?!assets/).*)',
       destination: '/index.html',
     })
+  })
+
+  it('vercel_build_config', () => {
+    const raw = readFileSync(path.join(rootDir, 'vercel.json'), 'utf8')
+    const config = JSON.parse(raw) as VercelConfig
+
+    expect(config.installCommand).toBeDefined()
+    expect(config.installCommand).toContain('--target wasm32-unknown-unknown')
+    expect(config.installCommand).toContain('cargo install wasm-pack --version 0.15.1 --locked')
+    expect(config.installCommand).toContain('. "$HOME/.cargo/env"')
+    expect(config.installCommand).toContain('bun install --frozen-lockfile')
+
+    expect(config.buildCommand).toBeDefined()
+    expect(config.buildCommand).toContain('. "$HOME/.cargo/env"')
+    expect(config.buildCommand).toContain('bun run build')
+    expect(config.buildCommand!.indexOf('. "$HOME/.cargo/env"')).toBeLessThan(
+      config.buildCommand!.indexOf('bun run build'),
+    )
+
+    expect(config.outputDirectory).toBe('dist')
   })
 
   it('wrangler_spa', () => {
