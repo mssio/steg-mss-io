@@ -5,7 +5,7 @@ use crate::blocks::{
 };
 use crate::ecc::{bits_to_bytes, bytes_to_bits, hamming_decode, hamming_encode, REDUNDANCY};
 use crate::error::StegError;
-use crate::image_io::{decode, encode, Format};
+use crate::image_io::{decode, decode_rgb, encode, encode_with_alpha, Decoded, Format};
 use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes256Gcm, Nonce};
 use hkdf::Hkdf;
@@ -96,8 +96,8 @@ pub fn hide_with(
     if message.is_empty() {
         return Err(StegError::EmptyMessage);
     }
-    let mut dec = decode(image, true)?;
-    let (w, h) = (dec.rgb.width(), dec.rgb.height());
+    let Decoded { mut rgb, format, alpha } = decode(image, true)?;
+    let (w, h) = (rgb.width(), rgb.height());
     let grid = Grid::from_dims(w, h);
     let total = grid.total();
     let m = max_message_bytes(total);
@@ -138,18 +138,18 @@ pub fn hide_with(
     let b_order = body_order(total, &h_order, seed);
     debug_assert!(b_order.len() >= body_coded.len() * REDUNDANCY);
 
-    embed(&mut dec.rgb, &grid, &h_order, &header_coded, enc);
-    embed(&mut dec.rgb, &grid, &b_order, &body_coded, enc);
+    embed(&mut rgb, &grid, &h_order, &header_coded, enc);
+    embed(&mut rgb, &grid, &b_order, &body_coded, enc);
     // Free order/coded buffers before encoding the output image.
     drop(h_order);
     drop(b_order);
     drop(header_coded);
     drop(body_coded);
 
-    let bytes = encode(&dec.rgb, dec.format)?;
+    let bytes = encode_with_alpha(rgb, alpha, format)?;
     Ok(Hidden {
         bytes,
-        mime: dec.format.mime().to_string(),
+        mime: format.mime().to_string(),
         blocks_used,
         blocks_total: total as u32,
     })
@@ -159,7 +159,7 @@ pub fn reveal_core(image: &[u8], password: &str) -> Result<String, StegError> {
     if password.is_empty() {
         return Err(StegError::EmptyPassword);
     }
-    let dec = match decode(image, false) {
+    let dec = match decode_rgb(image, false) {
         Ok(d) => d,
         Err(StegError::TooLarge) => return Err(StegError::TooLarge),
         Err(StegError::Unsupported) => return Err(StegError::Unsupported),
@@ -228,8 +228,8 @@ pub fn capacity_core(image: &[u8]) -> Result<u32, StegError> {
 }
 
 pub fn diff_preview_core(original: &[u8], stego: &[u8]) -> Result<Vec<u8>, StegError> {
-    let a = decode(original, true)?.rgb;
-    let b = decode(stego, false)?.rgb;
+    let a = decode_rgb(original, true)?.rgb;
+    let b = decode_rgb(stego, false)?.rgb;
     if a.dimensions() != b.dimensions() {
         return Err(StegError::Internal);
     }

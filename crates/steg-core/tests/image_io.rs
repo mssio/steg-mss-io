@@ -1,11 +1,15 @@
 mod common;
 use common::*;
 use image::{
-    codecs::{jpeg::JpegEncoder, png::PngEncoder},
-    ExtendedColorType, ImageEncoder,
+    codecs::{
+        jpeg::JpegEncoder,
+        png::{PngDecoder, PngEncoder},
+    },
+    ColorType, ExtendedColorType, ImageDecoder, ImageEncoder,
 };
+use std::io::Cursor;
 use steg_core::error::StegError;
-use steg_core::image_io::{decode, encode, Format};
+use steg_core::image_io::{decode, decode_rgb, encode, encode_with_alpha, Format};
 
 fn crc32(data: &[u8]) -> u32 {
     let mut c = 0xFFFF_FFFFu32;
@@ -36,6 +40,10 @@ fn png_decodes_to_rgb() {
     let d = decode(&rgba, false).unwrap();
     assert_eq!(d.format, Format::Png);
     assert_eq!(d.rgb.dimensions(), (12, 7));
+    assert_eq!(d.alpha.as_deref(), Some([128u8; 12 * 7].as_slice()));
+
+    let d_rgb = decode_rgb(&rgba, false).unwrap();
+    assert!(d_rgb.alpha.is_none());
 
     let mut sixteen = Vec::new();
     let px16: Vec<u8> = (0..9 * 5 * 3).flat_map(|i| ((i * 700) as u16).to_ne_bytes()).collect();
@@ -45,6 +53,51 @@ fn png_decodes_to_rgb() {
     let d = decode(&sixteen, false).unwrap();
     assert_eq!(d.format, Format::Png);
     assert_eq!(d.rgb.dimensions(), (9, 5));
+    assert!(d.alpha.is_none());
+}
+
+#[test]
+fn png_alpha_roundtrip_and_orientation() {
+    // 4x2 RGBA PNG with distinct alpha per pixel, plus an eXIf chunk with orientation 6 (Rotate90).
+    let (w, h) = (4u32, 2u32);
+    let mut raw = Vec::new();
+    for y in 0..h {
+        for x in 0..w {
+            let a = (y * w + x) as u8 * 30;
+            raw.extend_from_slice(&[x as u8 * 50, y as u8 * 80, 120, a]);
+        }
+    }
+    let mut png = Vec::new();
+    let mut enc = PngEncoder::new(&mut png);
+    let mut exif = b"MM\x00\x2A\x00\x00\x00\x08\x00\x01\x01\x12\x00\x03\x00\x00\x00\x01".to_vec();
+    exif.extend_from_slice(&6u16.to_be_bytes());
+    exif.extend_from_slice(&[0, 0, 0, 0, 0, 0]);
+    enc.set_exif_metadata(exif).unwrap();
+    enc.write_image(&raw, w, h, ExtendedColorType::Rgba8).unwrap();
+
+    let dec = decode(&png, true).unwrap();
+    assert_eq!(dec.rgb.dimensions(), (2, 4));
+    // Rotate90 clockwise maps (x, y) in 4x2 -> (1 - y, x) in 2x4.
+    let alpha = dec.alpha.as_ref().expect("alpha preserved");
+    assert_eq!(alpha.len(), 8);
+    for y in 0..h {
+        for x in 0..w {
+            let nx = (h - 1 - y) as usize;
+            let ny = x as usize;
+            let expected_a = (y * w + x) as u8 * 30;
+            assert_eq!(alpha[ny * (h as usize) + nx], expected_a);
+        }
+    }
+
+    let out = encode_with_alpha(dec.rgb, dec.alpha, Format::Png).unwrap();
+    let decoder = PngDecoder::new(Cursor::new(&out)).unwrap();
+    assert_eq!(decoder.color_type(), ColorType::Rgba8);
+    assert_eq!(decoder.dimensions(), (2, 4));
+
+    // Opaque PNG still encodes as RGB8.
+    let opaque = encode_with_alpha(photo(16, 12), None, Format::Png).unwrap();
+    let opaque_dec = PngDecoder::new(Cursor::new(&opaque)).unwrap();
+    assert_eq!(opaque_dec.color_type(), ColorType::Rgb8);
 }
 
 #[test]

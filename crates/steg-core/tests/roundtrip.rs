@@ -19,6 +19,53 @@ fn roundtrip_png_photo() {
 }
 
 #[test]
+fn roundtrip_rgba_png_preserves_alpha() {
+    use image::{
+        codecs::png::{PngDecoder, PngEncoder},
+        ColorType, ExtendedColorType, ImageDecoder, ImageEncoder,
+    };
+    use std::io::Cursor;
+
+    let base = photo(640, 480);
+    let (w, h) = base.dimensions();
+    let mut raw = Vec::with_capacity((w * h * 4) as usize);
+    let mut expected_alpha = Vec::with_capacity((w * h) as usize);
+    for (y, row) in base.rows().enumerate() {
+        for (x, px) in row.enumerate() {
+            // Mix fully transparent (0), partially transparent (64, 180), and opaque (255).
+            let a = match (x / 160, y / 240) {
+                (0, _) => 0u8,
+                (1, _) => 64u8,
+                (2, _) => 180u8,
+                _ => 255u8,
+            };
+            raw.extend_from_slice(&px.0);
+            raw.push(a);
+            expected_alpha.push(a);
+        }
+    }
+    let mut input_png = Vec::new();
+    PngEncoder::new(&mut input_png)
+        .write_image(&raw, w, h, ExtendedColorType::Rgba8)
+        .unwrap();
+
+    let out = hide_core(&input_png, "transparent secret", PW).unwrap();
+    assert_eq!(out.mime, "image/png");
+
+    let png_dec = PngDecoder::new(Cursor::new(&out.bytes)).unwrap();
+    assert_eq!(png_dec.color_type(), ColorType::Rgba8);
+
+    let dec = decode(&out.bytes, false).unwrap();
+    assert_eq!(dec.alpha.as_deref(), Some(expected_alpha.as_slice()));
+    assert_eq!(reveal_core(&out.bytes, PW).unwrap(), "transparent secret");
+
+    // diff_preview must remain opaque RGB8.
+    let diff = diff_preview_core(&input_png, &out.bytes).unwrap();
+    let diff_dec = PngDecoder::new(Cursor::new(&diff)).unwrap();
+    assert_eq!(diff_dec.color_type(), ColorType::Rgb8);
+}
+
+#[test]
 fn roundtrip_jpeg_photo() {
     let out = hide_core(&jpeg_bytes(&photo(640, 480), 90), "hello jpeg", PW).unwrap();
     assert_eq!(out.mime, "image/jpeg");
