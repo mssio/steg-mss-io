@@ -6,7 +6,7 @@ Live site: [steg.mss.io](https://steg.mss.io) · Source: [github.com/mssio/steg-
 
 ## What it does
 
-- Embeds up to 500 Unicode characters (bounded by image size) into a PNG or JPEG photo using a password-keyed 8×8 luminance-block scheme with Hamming(7,4) error correction and 3× majority voting.
+- Embeds up to 500 Unicode characters (bounded by image size) into a PNG or JPEG photo using an 8×8 luminance-block scheme (public format header + password-keyed body) with Hamming(7,4) error correction and 3× majority voting.
 - Encrypts messages with AES-256-GCM using keys derived via PBKDF2-HMAC-SHA256 (600,000 iterations) and HKDF-SHA256, compiled from Rust (`crates/steg-core`) to WebAssembly and run off the main thread in a Web Worker.
 - Survives JPEG recompression (quality 75–92) of an unresized image. Resizing, cropping, or taking a screenshot breaks the 8×8 block grid and destroys the message.
 

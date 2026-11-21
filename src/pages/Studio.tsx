@@ -22,7 +22,7 @@ const COPY: Record<StudioMode, { eyebrow: string; title: string; lede: string; d
   hide: {
     eyebrow: 'Hidden in plain sight',
     title: 'Hide a message inside a photo.',
-    lede: 'Your words are encrypted with a password and woven into the picture itself. To anyone else it is just a photo.',
+    lede: 'Your words are encrypted with a password and woven into the picture itself. At a glance it looks like an ordinary photo, and only the password can read it.',
     doc: 'Hide a message inside a photo · steg.mss.io',
   },
   reveal: {

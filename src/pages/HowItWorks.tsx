@@ -8,7 +8,7 @@ const STEPS = [
   {
     n: '01',
     title: 'Encrypt',
-    body: 'Your password is stretched into a key (600,000 rounds of PBKDF2) and the message is sealed with AES-256-GCM. Without the password it is indistinguishable from noise, and any tampering is detected.',
+    body: 'Your password is stretched into a key (600,000 rounds of PBKDF2) and the message is sealed with AES-256-GCM. Without the password the message can’t be read, and any tampering is detected.',
   },
   {
     n: '02',
@@ -18,7 +18,7 @@ const STEPS = [
   {
     n: '03',
     title: 'Scatter',
-    body: 'The bits are spread across the photo’s 8×8 pixel blocks in an order only your password can reproduce, so there is no fixed place to look.',
+    body: 'The message bits are spread across the photo’s 8×8 pixel blocks in an order only your password can reproduce, so they can’t be pulled out without it.',
   },
   {
     n: '04',
@@ -61,8 +61,8 @@ const PLATFORMS: { how: string; note: string; verdict: Verdict; label?: string }
 
 const LIMITS = [
   {
-    title: 'It hides and encrypts, but it isn’t invisible to an expert.',
-    body: 'To a person, the photo looks ordinary. An analyst running statistical tests can tell that it was altered. They still can’t read the message without the password.',
+    title: 'It hides and encrypts, but it isn’t invisible to inspection.',
+    body: 'To a casual glance the photo looks ordinary. A small public header (format version and a random salt) is stored at fixed positions, so someone who knows this tool can tell a photo carries a hidden message — and statistical tests can spot altered blocks — but not read it without the password.',
   },
   {
     title: 'The password is the whole lock.',
