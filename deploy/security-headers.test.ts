@@ -148,15 +148,29 @@ describe('deploy config parity', () => {
 
   it('vercel_build_config', () => {
     const raw = readFileSync(path.join(rootDir, 'vercel.json'), 'utf8')
-    const config = JSON.parse(raw) as VercelConfig
+    const config = JSON.parse(raw) as VercelConfig & Record<string, unknown>
 
-    expect(config.installCommand).toContain('rustup toolchain install stable')
-    expect(config.installCommand).toContain('--target wasm32-unknown-unknown')
-    expect(config.installCommand).toContain('rustup default stable')
-    expect(config.installCommand).toContain('cargo install wasm-pack --version 0.15.1 --locked')
-    expect(config.installCommand).toContain('bun install --frozen-lockfile')
-    expect(config.installCommand).not.toContain('sh.rustup.rs')
-    expect(config.installCommand).not.toContain('.cargo/env')
+    expect(config.installCommand).toBe('sh scripts/vercel-install.sh')
+    expect(config.installCommand!.length).toBeLessThanOrEqual(256)
+    expect(config.buildCommand).toBeDefined()
+    expect(config.buildCommand!.length).toBeLessThanOrEqual(256)
+
+    for (const [key, value] of Object.entries(config)) {
+      if (key.endsWith('Command') && typeof value === 'string') {
+        expect(value.length).toBeLessThanOrEqual(256)
+      }
+    }
+
+    const installScript = readFileSync(path.join(rootDir, 'scripts', 'vercel-install.sh'), 'utf8')
+    expect(installScript).toContain('set -eu')
+    expect(installScript).toContain('rustup toolchain install stable')
+    expect(installScript).toContain('--target wasm32-unknown-unknown')
+    expect(installScript).toContain('rustup default stable')
+    expect(installScript).toContain('cargo install wasm-pack --version 0.15.1 --locked')
+    expect(installScript).toContain('wasm-pack --version')
+    expect(installScript).toContain('bun install --frozen-lockfile')
+    expect(installScript).not.toContain('sh.rustup.rs')
+    expect(installScript).not.toContain('.cargo/env')
 
     expect(config.buildCommand).toContain('bun run build')
     expect(config.buildCommand).not.toContain('.cargo/env')
