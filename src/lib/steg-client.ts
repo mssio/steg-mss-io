@@ -107,7 +107,6 @@ export function createStegClient(spawn: () => WorkerLike): StegClient {
         getWorker().postMessage(req, transfer)
       } catch {
         pending.delete(req.id)
-        failAllAndReset()
         reject(new Error(fallbackError(req.op)))
       }
     })

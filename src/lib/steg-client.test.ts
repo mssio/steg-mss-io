@@ -5,6 +5,7 @@ import { createStegClient, type WorkerLike } from './steg-client'
 class FakeWorker implements WorkerLike {
   posted: Array<{ message: StegWorkerRequest; transfer: Transferable[] }> = []
   terminated = false
+  onPostMessage?: (message: StegWorkerRequest, transfer: Transferable[]) => void
   private listeners: {
     message: Array<(event: MessageEvent<StegWorkerResponse>) => void>
     error: Array<(event: Event) => void>
@@ -12,6 +13,7 @@ class FakeWorker implements WorkerLike {
   } = { message: [], error: [], messageerror: [] }
 
   postMessage(message: StegWorkerRequest, transfer: Transferable[]): void {
+    this.onPostMessage?.(message, transfer)
     this.posted.push({ message, transfer })
   }
 
@@ -300,5 +302,41 @@ describe('createStegClient', () => {
       'The password contains a broken character. Please retype it.',
     )
     expect(workers).toHaveLength(0)
+  })
+
+  test('postMessage throw rejects only that call and keeps worker and concurrent calls alive', async () => {
+    const workers: FakeWorker[] = []
+    const client = createStegClient(() => {
+      const w = new FakeWorker()
+      workers.push(w)
+      return w
+    })
+    const blob = new Blob([new Uint8Array([1, 2, 3])])
+
+    const pCap = client.capacity(blob)
+    for (let i = 0; i < 20 && (workers[0]?.posted.length ?? 0) < 1; i++) {
+      await Bun.sleep(1)
+    }
+    expect(workers).toHaveLength(1)
+    expect(workers[0].posted).toHaveLength(1)
+
+    // Next postMessage throws (e.g. DataCloneError).
+    workers[0].onPostMessage = (msg) => {
+      if (msg.op === 'hide') throw new DOMException('cannot clone', 'DataCloneError')
+    }
+
+    await expect(client.hide(blob, 'hello', 'pw')).rejects.toThrow(
+      'Something went wrong. Please try again.',
+    )
+    expect(workers[0].terminated).toBe(false)
+    expect(workers).toHaveLength(1)
+
+    // The earlier in-flight call still resolves normally when the worker replies.
+    workers[0].emitMessage({
+      id: workers[0].posted[0].message.id,
+      ok: true,
+      result: 412,
+    })
+    expect(await pCap).toBe(412)
   })
 })
