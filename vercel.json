@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown && rustup default stable && cargo install wasm-pack --version 0.15.1 --locked && export PATH=\"${CARGO_HOME:-$HOME/.cargo}/bin:$PATH\" && wasm-pack --version && bun install --frozen-lockfile",
+  "installCommand": "sh scripts/vercel-install.sh",
   "buildCommand": "export PATH=\"${CARGO_HOME:-$HOME/.cargo}/bin:$PATH\" && bun run build",
   "outputDirectory": "dist",
   "headers": [
