@@ -35,6 +35,7 @@ export function PasswordField({
   const hint = generator && value ? HINT[strength(value)] : null
 
   async function generate() {
+    if (disabled) return
     const phrase = generatePassphrase()
     onChange(phrase)
     setVisible(true)
@@ -58,9 +59,11 @@ export function PasswordField({
             id={id}
             type={visible ? 'text' : 'password'}
             value={value}
-            onChange={(e) => onChange(e.currentTarget.value)}
+            onChange={(e) => {
+              if (!disabled) onChange(e.currentTarget.value)
+            }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && onEnter && !e.nativeEvent.isComposing) {
+              if (!disabled && e.key === 'Enter' && onEnter && !e.nativeEvent.isComposing) {
                 e.preventDefault()
                 onEnter()
               }
@@ -72,15 +75,16 @@ export function PasswordField({
             spellCheck={false}
             aria-describedby={`${id}-hint`}
             placeholder={generator ? 'Something only the recipient knows' : 'The password it was hidden with'}
-            className="h-11 w-full rounded-lg border border-input bg-transparent pr-11 pl-3 font-mono text-sm transition-colors placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring disabled:opacity-50 dark:bg-input/15"
+            className="h-11 w-full rounded-lg border border-input bg-transparent pr-11 pl-3 font-mono text-sm transition-colors placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-60 dark:bg-input/15"
           />
           <button
             type="button"
             onClick={() => setVisible((v) => !v)}
+            disabled={disabled}
             aria-label={visible ? 'Hide password' : 'Show password'}
             aria-pressed={visible}
             aria-controls={id}
-            className="absolute inset-y-1 right-1 grid w-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="absolute inset-y-1 right-1 grid w-9 place-items-center rounded-md text-muted-foreground transition-colors enabled:hover:bg-muted enabled:hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             {visible ? (
               <EyeOffIcon aria-hidden="true" strokeWidth={1.75} className="size-4" />
@@ -94,7 +98,7 @@ export function PasswordField({
             type="button"
             onClick={generate}
             disabled={disabled}
-            className="inline-flex h-11 items-center gap-2 rounded-lg border border-border-strong px-3.5 text-sm transition-colors hover:border-foreground/40 hover:bg-muted disabled:opacity-50"
+            className="inline-flex h-11 items-center gap-2 rounded-lg border border-border-strong px-3.5 text-sm transition-colors enabled:hover:border-foreground/40 enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           >
             <DicesIcon aria-hidden="true" strokeWidth={1.75} className="size-4 text-primary" />
             Generate

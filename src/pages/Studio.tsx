@@ -179,6 +179,11 @@ function HideStudio() {
     diff.run(async () => ({ value: await diffPreview(original, stego), source: stego }))
   }
 
+  function onPassword(value: string) {
+    if (working) return
+    setPassword(value)
+  }
+
   function onHide() {
     if (!image || blocker !== null || working) return
     const source = image.blob
@@ -190,9 +195,8 @@ function HideStudio() {
       try {
         return { value: await hide(source, message, typed), source }
       } finally {
-        // Never keep the password around after a run, success or failure
-        // (but don't wipe a new one typed while this run was in flight).
-        setPassword((now) => (now === typed ? '' : now))
+        // Never keep the password around after a run, success or failure.
+        setPassword('')
       }
     })
   }
@@ -222,7 +226,7 @@ function HideStudio() {
           message={message}
           onMessage={onMessage}
           password={password}
-          onPassword={setPassword}
+          onPassword={onPassword}
           capacity={capacityMax}
           measuring={measuring}
           blocker={blocker}
@@ -293,6 +297,11 @@ function RevealStudio() {
     clear()
   }
 
+  function onPassword(value: string) {
+    if (working) return
+    setPassword(value)
+  }
+
   function onReveal() {
     if (!image || blocker !== null || working) return
     const source = image.blob
@@ -302,7 +311,7 @@ function RevealStudio() {
         return { value: await reveal(source, typed), source }
       } finally {
         // Never keep the password around after a run, success or failure.
-        setPassword((now) => (now === typed ? '' : now))
+        setPassword('')
       }
     })
   }
@@ -323,7 +332,7 @@ function RevealStudio() {
 
         <RevealPanel
           password={password}
-          onPassword={setPassword}
+          onPassword={onPassword}
           blocker={blocker}
           working={working}
           error={error}

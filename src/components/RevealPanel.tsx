@@ -38,6 +38,7 @@ export function RevealPanel({
           id="reveal-password"
           value={password}
           onChange={onPassword}
+          disabled={working}
           generator={false}
           onEnter={blocker === null && !working ? onReveal : undefined}
         />

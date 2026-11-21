@@ -58,7 +58,7 @@ export function HidePanel({
       </Step>
 
       <Step n="02" label="Password" htmlFor="hide-password">
-        <PasswordField id="hide-password" value={password} onChange={onPassword} />
+        <PasswordField id="hide-password" value={password} onChange={onPassword} disabled={working} />
       </Step>
 
       <div className="space-y-3">
