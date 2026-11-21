@@ -82,10 +82,10 @@ pub fn encode(rgb: &RgbImage, format: Format) -> Result<Vec<u8>, StegError> {
     match format {
         Format::Png => rgb
             .write_to(&mut Cursor::new(&mut out), ImageFormat::Png)
-            .map_err(|_| StegError::Unsupported)?,
+            .map_err(|_| StegError::Internal)?,
         Format::Jpeg => JpegEncoder::new_with_quality(&mut out, JPEG_QUALITY)
             .write_image(rgb.as_raw(), rgb.width(), rgb.height(), ExtendedColorType::Rgb8)
-            .map_err(|_| StegError::Unsupported)?,
+            .map_err(|_| StegError::Internal)?,
     }
     Ok(out)
 }

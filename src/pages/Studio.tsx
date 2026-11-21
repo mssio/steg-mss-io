@@ -95,7 +95,7 @@ function HideStudio() {
   const current = image?.blob
   const capacityMax = cap.status === 'done' && cap.result && cap.result.source === current ? cap.result.value : null
   const capacityError = cap.status === 'error' ? (cap.error ?? null) : null
-  const measuring = cap.status === 'running'
+  const measuring = image !== null && capacityMax === null && cap.status !== 'error'
   const output = job.status === 'done' && job.result && job.result.source === current ? job.result.value : null
   const working = job.status === 'running'
   const resultUrl = useObjectUrl(output?.blob)
@@ -149,6 +149,7 @@ function HideStudio() {
   // The photo no longer holds what the box says: drop the result (and its
   // difference view) rather than offer a download that doesn't match.
   function onMessage(value: string) {
+    if (working) return
     setMessage(value)
     if (job.status !== 'idle') resetJob()
     if (diff.status !== 'idle') resetDiff()

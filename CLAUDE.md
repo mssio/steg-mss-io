@@ -64,7 +64,7 @@ See §6 of [`docs/superpowers/specs/2026-11-20-steg-wasm-design.md`](docs/superp
 
 ## Rules
 
-1. **No logging of user data:** never log messages, passwords, or image bytes in Rust or TypeScript (no `console.*`, preserve manual `Debug` on `Hidden`).
+1. **No logging of user data:** app code (`crates/steg-core`, `src/`) must never log messages, passwords, or image bytes and must not use `console.*` (preserve manual `Debug` on `Hidden`). Local build scripts under `scripts/` may print status lines that contain no user data.
 2. **Do not edit static art assets:** never modify `public/hero.webp`, `public/og-art.png`, or `public/samples/*.jpg`.
 3. **Password & error semantics:** use passwords verbatim (no trimming or Unicode normalization); clear password fields after every hide/reveal; on reveal, every failure after the image is decoded returns the single generic error (`No message found, or the password is wrong.`), and the three pre-decode input checks (`EmptyPassword`, `Unsupported`, and `TooLarge`) are the only exceptions.
 4. **Format stability:** any change to framing, KDF, cipher, ECC, block ordering, or decoder requires bumping `VERSION` in `crates/steg-core/src/payload.rs` and updating the spec. Do not add support for legacy format v0.

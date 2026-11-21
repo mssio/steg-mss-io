@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { ImagePlusIcon, RefreshCwIcon } from 'lucide-react'
 import { useFileDrop } from '@/hooks/useFileDrop'
-import { cn } from '@/lib/utils'
+import { cn, isEditableTarget } from '@/lib/utils'
 
 const ACCEPT = 'image/png,image/jpeg'
 
@@ -24,6 +24,7 @@ export function Dropzone({
 
   useEffect(() => {
     function onPaste(e: ClipboardEvent) {
+      if (isEditableTarget(e.target)) return
       const file = Array.from(e.clipboardData?.files ?? [])[0]
       if (!file) return // plain text paste: leave it alone
       e.preventDefault()

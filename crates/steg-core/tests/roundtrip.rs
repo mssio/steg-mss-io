@@ -188,7 +188,14 @@ fn diff_preview_is_png() {
     assert_eq!((d.rgb.width(), d.rgb.height()), (640, 480));
     assert!(d.rgb.as_raw().iter().any(|&v| v > 0));
     let other = png_bytes(&photo(100, 100));
-    assert_eq!(diff_preview_core(&img, &other).unwrap_err(), StegError::NotFound);
+    assert_eq!(diff_preview_core(&img, &other).unwrap_err(), StegError::Internal);
+}
+
+#[test]
+fn diff_preview_dimension_mismatch_is_internal() {
+    let a = png_bytes(&photo(64, 48));
+    let b = png_bytes(&photo(48, 64));
+    assert_eq!(diff_preview_core(&a, &b).unwrap_err(), StegError::Internal);
 }
 
 #[test]

@@ -238,7 +238,7 @@ pub fn diff_preview_core(original: &[u8], stego: &[u8]) -> Result<Vec<u8>, StegE
     let a = decode(original, true)?.rgb;
     let b = decode(stego, false)?.rgb;
     if a.dimensions() != b.dimensions() {
-        return Err(StegError::NotFound);
+        return Err(StegError::Internal);
     }
     let raw: Vec<u8> = a
         .as_raw()
