@@ -379,22 +379,22 @@ fn embed_refactor_is_byte_identical() {
     let msg = "golden-refactor-check: 秘密 🔐 0123456789";
     let pw = "golden-passphrase";
 
-    // Recorded from the pre-refactor full-image f32 embed implementation.
+    // Recorded after switching clipping compensation to iterative per-pixel headroom scaling.
     let cases: [(&str, Vec<u8>, &str); 3] = [
         (
             "photo_png",
             png_bytes(&photo(1600, 1200)),
-            "4fcdf5ea83f60d1c7a32c5268128e243bcbe3e2eca9474d991a80a843d950972",
+            "178f4d45634cd0d0bdbab9b6c8d45f49bd9c20e5889439948ab64a8bbc839540",
         ),
         (
             "photo_jpeg",
             jpeg_bytes(&photo(1600, 1200), 90),
-            "8fb6baca55158cea3520f7f4e33514a0f0c6d2341429ece37f5edfab5c73cec0",
+            "8e3d1c30094f8f529e5c7279b8558b7448aa2b56f99d4d3495e964757b71e9a3",
         ),
         (
             "sample_street",
             sample("street"),
-            "ad33a82d25c7f91284692912fdd12aab7a6f12a0d05c25609da9b731082ad319",
+            "530b15b02f29dff1f7ff0e47cc828e04a0fbd53e397bfa77763cea0dcc647931",
         ),
     ];
     for (name, input, expected) in cases {

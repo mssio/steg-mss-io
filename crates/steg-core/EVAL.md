@@ -5,7 +5,7 @@
 Hiding a message means nudging brightness in 8x8 pixel blocks. The recipient's decoder is fixed (format v1), so the only thing we can still choose is how the *encoder* nudges the pixels. A single wrong bit makes the encrypted message unreadable, so the encoder must survive a JPEG re-save of the image. Four encoders were compared:
 
 - **Python**: the original script's fixed +/-25 nudge.
-- **Adjusted**: first measures each block's natural contrast and nudges just enough to reach the target (spec 6.4). Includes a clipping fix for pixels stuck at 0 or 255.
+- **Adjusted**: first measures each block's natural contrast and nudges just enough to reach the target (spec 6.4). Includes iterative clipping compensation (up to 8 rounds, scaling each push by the region's movable luminance fraction and alternating regions on saturation) for pixels stuck at 0 or 255.
 - **Cap 2.0**: like Adjusted, but never changes a block by more than 2x the strength (gentler on busy textures).
 - **Margin 1.2**: like Adjusted, but aims for 1.2x the strength (extra safety margin).
 
@@ -33,11 +33,11 @@ Gate (must pass): the 3 samples + small photo + flat colour, single recompressio
 | still-life | yes | Adjusted | 28.48 | 1.2 | q85 | 0.00 | 20/20 |
 | still-life | yes | Adjusted | 28.48 | 1.2 | q75 | 0.00 | 20/20 |
 | still-life | yes | Adjusted | 28.48 | 1.2 | q85>q75 | 0.00 | 20/20 |
-| still-life | yes | Cap 2.0 | 28.61 | 0.4 | none | 0.00 | - |
-| still-life | yes | Cap 2.0 | 28.61 | 0.4 | q92 | 0.00 | 20/20 |
-| still-life | yes | Cap 2.0 | 28.61 | 0.4 | q85 | 0.00 | 20/20 |
-| still-life | yes | Cap 2.0 | 28.61 | 0.4 | q75 | 0.00 | 20/20 |
-| still-life | yes | Cap 2.0 | 28.61 | 0.4 | q85>q75 | 0.00 | 20/20 |
+| still-life | yes | Cap 2.0 | 28.60 | 0.5 | none | 0.00 | - |
+| still-life | yes | Cap 2.0 | 28.60 | 0.5 | q92 | 0.00 | 20/20 |
+| still-life | yes | Cap 2.0 | 28.60 | 0.5 | q85 | 0.00 | 20/20 |
+| still-life | yes | Cap 2.0 | 28.60 | 0.5 | q75 | 0.00 | 20/20 |
+| still-life | yes | Cap 2.0 | 28.60 | 0.5 | q85>q75 | 0.00 | 20/20 |
 | still-life | yes | Margin 1.2 | 27.08 | 1.7 | none | 0.00 | - |
 | still-life | yes | Margin 1.2 | 27.08 | 1.7 | q92 | 0.00 | 20/20 |
 | still-life | yes | Margin 1.2 | 27.08 | 1.7 | q85 | 0.00 | 20/20 |
@@ -53,11 +53,11 @@ Gate (must pass): the 3 samples + small photo + flat colour, single recompressio
 | landscape | yes | Adjusted | 28.01 | 3.2 | q85 | 0.00 | 20/20 |
 | landscape | yes | Adjusted | 28.01 | 3.2 | q75 | 0.00 | 20/20 |
 | landscape | yes | Adjusted | 28.01 | 3.2 | q85>q75 | 0.00 | 20/20 |
-| landscape | yes | Cap 2.0 | 28.33 | 1.1 | none | 0.02 | - |
-| landscape | yes | Cap 2.0 | 28.33 | 1.1 | q92 | 0.02 | 20/20 |
-| landscape | yes | Cap 2.0 | 28.33 | 1.1 | q85 | 0.02 | 20/20 |
-| landscape | yes | Cap 2.0 | 28.33 | 1.1 | q75 | 0.02 | 20/20 |
-| landscape | yes | Cap 2.0 | 28.33 | 1.1 | q85>q75 | 0.02 | 20/20 |
+| landscape | yes | Cap 2.0 | 28.33 | 1.3 | none | 0.02 | - |
+| landscape | yes | Cap 2.0 | 28.33 | 1.3 | q92 | 0.02 | 20/20 |
+| landscape | yes | Cap 2.0 | 28.33 | 1.3 | q85 | 0.02 | 20/20 |
+| landscape | yes | Cap 2.0 | 28.33 | 1.3 | q75 | 0.02 | 20/20 |
+| landscape | yes | Cap 2.0 | 28.33 | 1.3 | q85>q75 | 0.02 | 20/20 |
 | landscape | yes | Margin 1.2 | 26.73 | 4.5 | none | 0.00 | - |
 | landscape | yes | Margin 1.2 | 26.73 | 4.5 | q92 | 0.00 | 20/20 |
 | landscape | yes | Margin 1.2 | 26.73 | 4.5 | q85 | 0.00 | 20/20 |
@@ -73,11 +73,11 @@ Gate (must pass): the 3 samples + small photo + flat colour, single recompressio
 | street | yes | Adjusted | 27.55 | 5.1 | q85 | 0.00 | 20/20 |
 | street | yes | Adjusted | 27.55 | 5.1 | q75 | 0.00 | 20/20 |
 | street | yes | Adjusted | 27.55 | 5.1 | q85>q75 | 0.00 | 20/20 |
-| street | yes | Cap 2.0 | 27.93 | 1.8 | none | 0.02 | - |
-| street | yes | Cap 2.0 | 27.93 | 1.8 | q92 | 0.02 | 20/20 |
-| street | yes | Cap 2.0 | 27.93 | 1.8 | q85 | 0.03 | 20/20 |
-| street | yes | Cap 2.0 | 27.93 | 1.8 | q75 | 0.03 | 20/20 |
-| street | yes | Cap 2.0 | 27.93 | 1.8 | q85>q75 | 0.02 | 20/20 |
+| street | yes | Cap 2.0 | 27.93 | 2.1 | none | 0.02 | - |
+| street | yes | Cap 2.0 | 27.93 | 2.1 | q92 | 0.02 | 20/20 |
+| street | yes | Cap 2.0 | 27.93 | 2.1 | q85 | 0.03 | 20/20 |
+| street | yes | Cap 2.0 | 27.93 | 2.1 | q75 | 0.03 | 20/20 |
+| street | yes | Cap 2.0 | 27.93 | 2.1 | q85>q75 | 0.02 | 20/20 |
 | street | yes | Margin 1.2 | 26.30 | 7.2 | none | 0.00 | - |
 | street | yes | Margin 1.2 | 26.30 | 7.2 | q92 | 0.00 | 20/20 |
 | street | yes | Margin 1.2 | 26.30 | 7.2 | q85 | 0.00 | 20/20 |
@@ -88,21 +88,21 @@ Gate (must pass): the 3 samples + small photo + flat colour, single recompressio
 | photo 1600x1200 | yes | Python | 27.68 | 0.0 | q85 | 1.97 | 0/20 |
 | photo 1600x1200 | yes | Python | 27.68 | 0.0 | q75 | 1.95 | 0/20 |
 | photo 1600x1200 | yes | Python | 27.68 | 0.0 | q85>q75 | 1.72 | 0/20 |
-| photo 1600x1200 | yes | Adjusted | 25.12 | 6.2 | none | 0.00 | - |
-| photo 1600x1200 | yes | Adjusted | 25.12 | 6.2 | q92 | 0.00 | 20/20 |
-| photo 1600x1200 | yes | Adjusted | 25.12 | 6.2 | q85 | 0.00 | 20/20 |
-| photo 1600x1200 | yes | Adjusted | 25.12 | 6.2 | q75 | 0.00 | 20/20 |
-| photo 1600x1200 | yes | Adjusted | 25.12 | 6.2 | q85>q75 | 0.00 | 20/20 |
-| photo 1600x1200 | yes | Cap 2.0 | 25.26 | 2.7 | none | 0.00 | - |
-| photo 1600x1200 | yes | Cap 2.0 | 25.26 | 2.7 | q92 | 0.00 | 20/20 |
-| photo 1600x1200 | yes | Cap 2.0 | 25.26 | 2.7 | q85 | 0.00 | 20/20 |
-| photo 1600x1200 | yes | Cap 2.0 | 25.26 | 2.7 | q75 | 0.00 | 20/20 |
-| photo 1600x1200 | yes | Cap 2.0 | 25.26 | 2.7 | q85>q75 | 0.00 | 20/20 |
-| photo 1600x1200 | yes | Margin 1.2 | 23.90 | 10.8 | none | 0.00 | - |
-| photo 1600x1200 | yes | Margin 1.2 | 23.90 | 10.8 | q92 | 0.00 | 20/20 |
-| photo 1600x1200 | yes | Margin 1.2 | 23.90 | 10.8 | q85 | 0.00 | 20/20 |
-| photo 1600x1200 | yes | Margin 1.2 | 23.90 | 10.8 | q75 | 0.00 | 20/20 |
-| photo 1600x1200 | yes | Margin 1.2 | 23.90 | 10.8 | q85>q75 | 0.00 | 20/20 |
+| photo 1600x1200 | yes | Adjusted | 25.13 | 6.2 | none | 0.00 | - |
+| photo 1600x1200 | yes | Adjusted | 25.13 | 6.2 | q92 | 0.00 | 20/20 |
+| photo 1600x1200 | yes | Adjusted | 25.13 | 6.2 | q85 | 0.00 | 20/20 |
+| photo 1600x1200 | yes | Adjusted | 25.13 | 6.2 | q75 | 0.00 | 20/20 |
+| photo 1600x1200 | yes | Adjusted | 25.13 | 6.2 | q85>q75 | 0.00 | 20/20 |
+| photo 1600x1200 | yes | Cap 2.0 | 25.27 | 2.8 | none | 0.00 | - |
+| photo 1600x1200 | yes | Cap 2.0 | 25.27 | 2.8 | q92 | 0.00 | 20/20 |
+| photo 1600x1200 | yes | Cap 2.0 | 25.27 | 2.8 | q85 | 0.00 | 20/20 |
+| photo 1600x1200 | yes | Cap 2.0 | 25.27 | 2.8 | q75 | 0.00 | 20/20 |
+| photo 1600x1200 | yes | Cap 2.0 | 25.27 | 2.8 | q85>q75 | 0.00 | 20/20 |
+| photo 1600x1200 | yes | Margin 1.2 | 23.91 | 10.9 | none | 0.00 | - |
+| photo 1600x1200 | yes | Margin 1.2 | 23.91 | 10.9 | q92 | 0.00 | 20/20 |
+| photo 1600x1200 | yes | Margin 1.2 | 23.91 | 10.9 | q85 | 0.00 | 20/20 |
+| photo 1600x1200 | yes | Margin 1.2 | 23.91 | 10.9 | q75 | 0.00 | 20/20 |
+| photo 1600x1200 | yes | Margin 1.2 | 23.91 | 10.9 | q85>q75 | 0.00 | 20/20 |
 | flat 1600x1200 | yes | Python | 27.34 | 0.0 | none | 0.00 | - |
 | flat 1600x1200 | yes | Python | 27.34 | 0.0 | q92 | 0.00 | 20/20 |
 | flat 1600x1200 | yes | Python | 27.34 | 0.0 | q85 | 0.00 | 20/20 |
@@ -168,21 +168,21 @@ Gate (must pass): the 3 samples + small photo + flat colour, single recompressio
 | text | no | Python | 30.61 | 0.0 | q85 | 25.81 | 0/20 |
 | text | no | Python | 30.61 | 0.0 | q75 | 32.07 | 0/20 |
 | text | no | Python | 30.61 | 0.0 | q85>q75 | 38.11 | 0/20 |
-| text | no | Adjusted | 20.29 | 25.0 | none | 0.00 | - |
-| text | no | Adjusted | 20.29 | 25.0 | q92 | 0.00 | 20/20 |
-| text | no | Adjusted | 20.29 | 25.0 | q85 | 0.00 | 20/20 |
-| text | no | Adjusted | 20.29 | 25.0 | q75 | 0.00 | 20/20 |
-| text | no | Adjusted | 20.29 | 25.0 | q85>q75 | 0.00 | 20/20 |
-| text | no | Cap 2.0 | 23.48 | 8.3 | none | 3.69 | - |
-| text | no | Cap 2.0 | 23.48 | 8.3 | q92 | 3.69 | 0/20 |
-| text | no | Cap 2.0 | 23.48 | 8.3 | q85 | 3.69 | 0/20 |
-| text | no | Cap 2.0 | 23.48 | 8.3 | q75 | 3.69 | 0/20 |
-| text | no | Cap 2.0 | 23.48 | 8.3 | q85>q75 | 4.65 | 0/20 |
-| text | no | Margin 1.2 | 19.61 | 29.3 | none | 0.00 | - |
-| text | no | Margin 1.2 | 19.61 | 29.3 | q92 | 0.00 | 20/20 |
-| text | no | Margin 1.2 | 19.61 | 29.3 | q85 | 0.00 | 20/20 |
-| text | no | Margin 1.2 | 19.61 | 29.3 | q75 | 0.00 | 20/20 |
-| text | no | Margin 1.2 | 19.61 | 29.3 | q85>q75 | 0.00 | 20/20 |
+| text | no | Adjusted | 19.67 | 29.3 | none | 0.00 | - |
+| text | no | Adjusted | 19.67 | 29.3 | q92 | 0.00 | 20/20 |
+| text | no | Adjusted | 19.67 | 29.3 | q85 | 0.00 | 20/20 |
+| text | no | Adjusted | 19.67 | 29.3 | q75 | 0.00 | 20/20 |
+| text | no | Adjusted | 19.67 | 29.3 | q85>q75 | 0.00 | 20/20 |
+| text | no | Cap 2.0 | 22.34 | 16.8 | none | 3.69 | - |
+| text | no | Cap 2.0 | 22.34 | 16.8 | q92 | 3.69 | 0/20 |
+| text | no | Cap 2.0 | 22.34 | 16.8 | q85 | 3.69 | 0/20 |
+| text | no | Cap 2.0 | 22.34 | 16.8 | q75 | 3.69 | 0/20 |
+| text | no | Cap 2.0 | 22.34 | 16.8 | q85>q75 | 3.69 | 0/20 |
+| text | no | Margin 1.2 | 18.97 | 33.4 | none | 0.00 | - |
+| text | no | Margin 1.2 | 18.97 | 33.4 | q92 | 0.00 | 20/20 |
+| text | no | Margin 1.2 | 18.97 | 33.4 | q85 | 0.00 | 20/20 |
+| text | no | Margin 1.2 | 18.97 | 33.4 | q75 | 0.00 | 20/20 |
+| text | no | Margin 1.2 | 18.97 | 33.4 | q85>q75 | 0.00 | 20/20 |
 
 
 GATE Python: FAIL [("landscape", "Python q92"), ("landscape", "Python q85"), ("landscape", "Python q75"), ("street", "Python q92"), ("street", "Python q85"), ("street", "Python q75"), ("photo 1600x1200", "Python q92"), ("photo 1600x1200", "Python q85"), ("photo 1600x1200", "Python q75")]
@@ -204,7 +204,7 @@ Spec 6.6 says the default is the gate-passing variant with the least distortion,
 
 Other results: Python fails the gate (landscape 17-18 of 20 succeed, street 2-4 of 20, synthetic photo 0 of 20). Margin 1.2 passes but is 1.2 to 1.6 dB more distorted than Adjusted on the gate images, with no reliability benefit. Adjusted has 0.00% raw bit errors and 20/20 everywhere, including the chained and stress cases. No decoder or format change was needed.
 
-Note: `AdjustedCap`'s clipping compensation was fixed before this run so that it aims at the capped change rather than undoing the cap.
+Note: `AdjustedCap`'s clipping compensation aims at the capped change rather than undoing the cap. Iterative clipping compensation (up to 8 rounds, scaling each push by the region's movable luminance fraction and alternating regions on saturation) leaves `Adjusted` at 0.00% raw BER and 20/20 reveal everywhere, keeps PSNR identical on all three real photos (+0.01 dB on `photo 1600x1200`), and reaches the full ±25 target on heavily clipped binary `text` blocks (PSNR 20.29 → 19.67 dB).
 
 ## How to reproduce
 

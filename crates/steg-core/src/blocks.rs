@@ -128,6 +128,25 @@ fn shift_block_region(blk: &mut [[f32; 3]; (BLOCK * BLOCK) as usize], centre: bo
     }
 }
 
+/// Fraction of a region's luminance weight whose channels can still move in the requested direction.
+fn movable_fraction(blk: &[[f32; 3]; (BLOCK * BLOCK) as usize], centre: bool, up: bool) -> f32 {
+    const WEIGHTS: [f32; 3] = [0.299, 0.587, 0.114];
+    let mut sum = 0.0f32;
+    for dy in 0..BLOCK {
+        for dx in 0..BLOCK {
+            if is_centre(dx, dy) == centre {
+                let p = blk[(dy * BLOCK + dx) as usize];
+                for ch in 0..3 {
+                    if if up { p[ch] < 255.0 } else { p[ch] > 0.0 } {
+                        sum += WEIGHTS[ch];
+                    }
+                }
+            }
+        }
+    }
+    sum / if centre { 16.0 } else { 48.0 }
+}
+
 /// Embeds `coded` bits into `rgb` in place, one 8x8 block at a time using a
 /// per-block `f32` scratch buffer (no full-image `f32` copy).
 pub fn embed(rgb: &mut RgbImage, grid: &Grid, order: &[u32], coded: &[u8], enc: Encoder) {
@@ -168,15 +187,46 @@ pub fn embed(rgb: &mut RgbImage, grid: &Grid, order: &[u32], coded: &[u8], enc: 
             shift_block_region(&mut scratch, true, o / 2.0);
             shift_block_region(&mut scratch, false, -o / 2.0);
             if enc != Encoder::Python {
-                // Compensate for clipping: push the region with headroom by the shortfall.
-                let (c, e) = scratch_centre_edge(&scratch);
-                let shortfall = aim - (c - e);
-                if shortfall * aim.signum() > 0.0 {
-                    let (c_room, e_room) = if aim > 0.0 { (255.0 - c, e) } else { (c, 255.0 - e) };
-                    if c_room >= e_room {
-                        shift_block_region(&mut scratch, true, shortfall);
+                // Compensate for clipping iteratively until the target is met or both regions saturate.
+                const MAX_COMP_ITERS: usize = 8;
+                let dir = sgn;
+                let (mut c, mut e) = scratch_centre_edge(&scratch);
+                let mut shortfall = aim - (c - e);
+                let mut stalled = false;
+                for _ in 0..MAX_COMP_ITERS {
+                    let prev_gap = shortfall * dir;
+                    if prev_gap <= 0.01 {
+                        break;
+                    }
+                    let up = dir > 0.0;
+                    let c_frac = movable_fraction(&scratch, true, up);
+                    let e_frac = movable_fraction(&scratch, false, !up);
+                    if c_frac <= 1e-6 && e_frac <= 1e-6 {
+                        break;
+                    }
+                    let push_centre = if (c_frac - e_frac).abs() > 1e-6 {
+                        c_frac > e_frac
                     } else {
-                        shift_block_region(&mut scratch, false, -shortfall);
+                        let (c_room, e_room) = if up { (255.0 - c, e) } else { (c, 255.0 - e) };
+                        c_room >= e_room
+                    };
+                    if push_centre {
+                        let amt = (shortfall / c_frac).clamp(-255.0, 255.0);
+                        shift_block_region(&mut scratch, true, amt);
+                    } else {
+                        let amt = (-shortfall / e_frac).clamp(-255.0, 255.0);
+                        shift_block_region(&mut scratch, false, amt);
+                    }
+                    (c, e) = scratch_centre_edge(&scratch);
+                    shortfall = aim - (c - e);
+                    let next_gap = shortfall * dir;
+                    if next_gap >= prev_gap - 1e-4 {
+                        if stalled {
+                            break;
+                        }
+                        stalled = true;
+                    } else {
+                        stalled = false;
                     }
                 }
             }

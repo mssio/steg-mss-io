@@ -97,3 +97,57 @@ fn clipping_compensation() {
         assert_eq!(e, 0);
     }
 }
+
+#[test]
+fn clipping_compensation_textured_block_reaches_target() {
+    use image::Rgb;
+
+    // 3 identical 8x8 blocks (REDUNDANCY = 3) so we can embed one coded bit.
+    let make_textured = |centre_fn: &dyn Fn(u32, u32) -> [u8; 3]| -> RgbImage {
+        RgbImage::from_fn(24, 8, |x, y| {
+            let dx = x % 8;
+            let dy = y % 8;
+            if (2..6).contains(&dx) && (2..6).contains(&dy) {
+                Rgb(centre_fn(dx, dy))
+            } else {
+                // Edge pixels: half 0, half 255 (24 each).
+                let edge_idx = (dx + dy) % 2;
+                Rgb(if edge_idx == 0 { [0; 3] } else { [255; 3] })
+            }
+        })
+    };
+
+    // Case 1: both centre and edge are half 0, half 255 (old single-push missed ±25 and stopped at ±18.75).
+    // Case 2: centre is near-white [250; 3] and edge is half 0, half 255 (forces alternating to edge on bit 1).
+    let cases: [(&str, RgbImage); 2] = [
+        (
+            "half-clipped-centre-and-edge",
+            make_textured(&|dx, dy| if (dx + dy) % 2 == 0 { [0; 3] } else { [255; 3] }),
+        ),
+        (
+            "near-white-centre-textured-edge",
+            make_textured(&|_, _| [250; 3]),
+        ),
+    ];
+
+    let grid = Grid::from_dims(24, 8);
+    let order = [0u32, 1, 2];
+
+    for (name, base) in cases {
+        for bit in [0u8, 1u8] {
+            let mut img = base.clone();
+            embed(&mut img, &grid, &order, &[bit], Encoder::Adjusted);
+            let get = |x: u32, y: u32| {
+                let p = img.get_pixel(x, y).0;
+                [p[0] as f32, p[1] as f32, p[2] as f32]
+            };
+            let diff = block_diff(&get, 0, 0);
+            let sgn = if bit == 1 { 1.0f32 } else { -1.0f32 };
+            assert!(
+                diff * sgn >= STRENGTH - 0.5,
+                "{name} bit={bit}: expected diff*{sgn} >= {}, got {diff}",
+                STRENGTH - 0.5
+            );
+        }
+    }
+}
