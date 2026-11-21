@@ -9,7 +9,7 @@ use image::{
 };
 use std::io::Cursor;
 use steg_core::error::StegError;
-use steg_core::image_io::{decode, decode_rgb, encode, encode_with_metadata, Format};
+use steg_core::image_io::{decode, decode_rgb, dimensions, encode, encode_with_metadata, Format};
 
 fn crc32(data: &[u8]) -> u32 {
     let mut c = 0xFFFF_FFFFu32;
@@ -136,13 +136,25 @@ fn rejects_over_40mp() {
     chunk(&mut png, b"IDAT", &[0x78, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01]);
     chunk(&mut png, b"IEND", &[]);
     assert_eq!(decode(&png, false).unwrap_err(), StegError::TooLarge);
+    assert_eq!(dimensions(&png, true).unwrap_err(), StegError::TooLarge);
 }
 
 #[test]
 fn exif_orientation_applied() {
-    let j = with_exif_orientation(jpeg_bytes(&photo(40, 20), 90), 6);
+    let base = jpeg_bytes(&photo(40, 20), 90);
+    let j = with_exif_orientation(base.clone(), 6);
     assert_eq!(decode(&j, true).unwrap().rgb.dimensions(), (20, 40));
     assert_eq!(decode(&j, false).unwrap().rgb.dimensions(), (40, 20));
+    assert_eq!(dimensions(&j, true).unwrap(), (20, 40));
+    assert_eq!(dimensions(&j, false).unwrap(), (40, 20));
+
+    // All 8 EXIF orientations: 5..=8 swap width and height; 1..=4 preserve them.
+    for orientation in 1u16..=8 {
+        let rotated = with_exif_orientation(base.clone(), orientation);
+        let expected = if orientation >= 5 { (20, 40) } else { (40, 20) };
+        assert_eq!(dimensions(&rotated, true).unwrap(), expected, "orientation={orientation}");
+        assert_eq!(decode(&rotated, true).unwrap().rgb.dimensions(), expected, "orientation={orientation}");
+    }
 }
 
 #[test]

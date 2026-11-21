@@ -130,6 +130,49 @@ pub fn decode_rgb(bytes: &[u8], apply_orientation: bool) -> Result<Decoded, Steg
     decode_inner(bytes, apply_orientation, false, false)
 }
 
+fn oriented_dimensions<D: ImageDecoder>(
+    mut decoder: D,
+    apply_orientation: bool,
+) -> Result<(u32, u32), StegError> {
+    let (w, h) = decoder.dimensions();
+    if (w as u64) * (h as u64) > MAX_PIXELS {
+        return Err(StegError::TooLarge);
+    }
+    if apply_orientation {
+        let orientation = decoder.orientation().unwrap_or(Orientation::NoTransforms);
+        if matches!(
+            orientation,
+            Orientation::Rotate90
+                | Orientation::Rotate270
+                | Orientation::Rotate90FlipH
+                | Orientation::Rotate270FlipH
+        ) {
+            return Ok((h, w));
+        }
+    }
+    Ok((w, h))
+}
+
+/// Reads oriented image dimensions from headers without decoding pixels.
+pub fn dimensions(bytes: &[u8], apply_orientation: bool) -> Result<(u32, u32), StegError> {
+    let format = match image::guess_format(bytes) {
+        Ok(ImageFormat::Png) => Format::Png,
+        Ok(ImageFormat::Jpeg) => Format::Jpeg,
+        _ => return Err(StegError::Unsupported),
+    };
+    let cur = Cursor::new(bytes);
+    match format {
+        Format::Png => oriented_dimensions(
+            PngDecoder::new(cur).map_err(|_| StegError::Unreadable)?,
+            apply_orientation,
+        ),
+        Format::Jpeg => oriented_dimensions(
+            JpegDecoder::new(cur).map_err(|_| StegError::Unreadable)?,
+            apply_orientation,
+        ),
+    }
+}
+
 pub fn encode_with_metadata(
     rgb: RgbImage,
     alpha: Option<Vec<u8>>,

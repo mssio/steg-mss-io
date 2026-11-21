@@ -5,7 +5,7 @@ use crate::blocks::{
 };
 use crate::ecc::{bits_to_bytes, bytes_to_bits, hamming_decode, hamming_encode, REDUNDANCY};
 use crate::error::StegError;
-use crate::image_io::{decode, decode_rgb, encode, encode_with_metadata, Decoded, Format};
+use crate::image_io::{decode, decode_rgb, dimensions, encode, encode_with_metadata, Decoded, Format};
 use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes256Gcm, Nonce};
 use hkdf::Hkdf;
@@ -212,8 +212,8 @@ pub struct Capacity {
 }
 
 pub fn capacity_detail_core(image: &[u8]) -> Result<Capacity, StegError> {
-    let dec = decode(image, true)?;
-    let m = max_message_bytes(Grid::from_dims(dec.rgb.width(), dec.rgb.height()).total());
+    let (w, h) = dimensions(image, true)?;
+    let m = max_message_bytes(Grid::from_dims(w, h).total());
     if m < 1 {
         return Err(StegError::TooSmall);
     }

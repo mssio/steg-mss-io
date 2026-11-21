@@ -257,13 +257,44 @@ fn capacity_no_kdf() {
 }
 
 #[test]
+fn capacity_header_only_matches_full_decode_and_hide() {
+    let cases = [
+        ("png", png_bytes(&photo(640, 480))),
+        ("jpeg", jpeg_bytes(&photo(640, 480), 90)),
+        ("exif_rot90", with_exif_orientation(jpeg_bytes(&photo(640, 480), 90), 6)),
+        ("exif_rot270", with_exif_orientation(jpeg_bytes(&photo(640, 480), 90), 8)),
+    ];
+    for (name, bytes) in cases {
+        let decoded = decode(&bytes, true).unwrap().rgb;
+        let expected_m = max_message_bytes(((decoded.width() / 8) * (decoded.height() / 8)) as usize);
+        let detail = capacity_detail_core(&bytes).unwrap();
+        assert_eq!(detail.bytes as i64, expected_m, "{name}");
+        assert_eq!(detail.chars as i64, expected_m.min(500), "{name}");
+
+        let msg = "a".repeat(detail.chars as usize);
+        let hidden = hide_core(&bytes, &msg, PW).unwrap();
+        assert_eq!(reveal_core(&hidden.bytes, PW).unwrap(), msg, "{name}");
+    }
+}
+
+#[test]
 fn unsupported_and_corrupt() {
     assert_eq!(reveal_core(b"GIF89a....", PW).unwrap_err(), StegError::Unsupported);
+    assert_eq!(capacity_core(b"GIF89a....").unwrap_err(), StegError::Unsupported);
+
+    // Truncated PNG header (fails before IHDR finishes).
+    let mut p_hdr = png_bytes(&photo(640, 480));
+    p_hdr.truncate(20);
+    assert_eq!(capacity_core(&p_hdr).unwrap_err(), StegError::Unreadable);
+    assert_eq!(hide_core(&p_hdr, "hello", PW).unwrap_err(), StegError::Unreadable);
+    assert_eq!(diff_preview_core(&p_hdr, &p_hdr).unwrap_err(), StegError::Unreadable);
+    assert_eq!(reveal_core(&p_hdr, PW).unwrap_err(), StegError::NotFound);
 
     // Truncated PNG (valid IHDR header, broken IDAT pixel data).
+    // Header-only capacity does not decode pixels; pixel-decoding ops still report Unreadable/NotFound.
     let mut p = png_bytes(&photo(640, 480));
     p.truncate(p.len() / 2);
-    assert_eq!(capacity_core(&p).unwrap_err(), StegError::Unreadable);
+    assert!(capacity_core(&p).is_ok());
     assert_eq!(hide_core(&p, "hello", PW).unwrap_err(), StegError::Unreadable);
     assert_eq!(diff_preview_core(&p, &p).unwrap_err(), StegError::Unreadable);
     assert_eq!(reveal_core(&p, PW).unwrap_err(), StegError::NotFound);
@@ -276,7 +307,7 @@ fn unsupported_and_corrupt() {
     assert_eq!(diff_preview_core(&j, &j).unwrap_err(), StegError::Unreadable);
     assert_eq!(reveal_core(&j, PW).unwrap_err(), StegError::NotFound);
 
-    // Corrupt JPEG with valid header/SOF but damaged scan/marker bytes (fails pixel decode).
+    // Corrupt JPEG with valid header/SOF but damaged scan/marker bytes (fails header/pixel parse).
     let mut j_bad = jpeg_bytes(&photo(640, 480), 90);
     let sos = j_bad
         .windows(2)
