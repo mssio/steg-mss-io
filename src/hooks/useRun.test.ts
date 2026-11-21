@@ -51,6 +51,17 @@ describe('createRunner', () => {
     expect(last()).toEqual({ status: 'error', error: 'boom' })
   })
 
+  test('non-Error or empty-message rejections use the canonical fallback', async () => {
+    const { runner, last } = setup<string>()
+    runner.run(() => Promise.reject('raw'))
+    await flush()
+    expect(last()).toEqual({ status: 'error', error: 'Something went wrong. Please try again.' })
+
+    runner.run(() => Promise.reject(new Error('')))
+    await flush()
+    expect(last()).toEqual({ status: 'error', error: 'Something went wrong. Please try again.' })
+  })
+
   test('slow first run, fast second run: only the second result is kept', async () => {
     const { runner, states, last } = setup<string>()
     const slow = deferred<string>()

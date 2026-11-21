@@ -1,3 +1,6 @@
+/** Canonical fallback error message matching `StegError::Internal`. */
+export const GENERIC_FALLBACK = 'Something went wrong. Please try again.'
+
 /** Result of a successful `hide()`. */
 export interface HideOutput {
   /** The image with the message embedded. */

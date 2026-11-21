@@ -1,15 +1,15 @@
 import { isWellFormedUtf16 } from './format'
-import type {
-  CapacityDetail,
-  HideOutput,
-  StegWorkerRequest,
-  StegWorkerResponse,
-  StegWorkerResult,
-  WorkerHideResult,
+import {
+  GENERIC_FALLBACK,
+  type CapacityDetail,
+  type HideOutput,
+  type StegWorkerRequest,
+  type StegWorkerResponse,
+  type StegWorkerResult,
+  type WorkerHideResult,
 } from './steg-types'
 
 const REVEAL_FALLBACK = 'No message found, or the password is wrong.'
-const GENERIC_FALLBACK = 'Something went wrong. Please try again.'
 const BROKEN_PASSWORD = 'The password contains a broken character. Please retype it.'
 const BROKEN_MESSAGE = 'The message contains a broken character. Please retype it.'
 

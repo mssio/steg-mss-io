@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { GENERIC_FALLBACK } from '@/lib/steg-types'
 
 export type RunStatus = 'idle' | 'running' | 'done' | 'error'
 
@@ -19,7 +20,7 @@ export interface Runner<T> {
 const IDLE = { status: 'idle' } as const
 
 function messageOf(err: unknown): string {
-  return err instanceof Error && err.message ? err.message : 'Something went wrong.'
+  return err instanceof Error && err.message ? err.message : GENERIC_FALLBACK
 }
 
 /**

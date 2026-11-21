@@ -1,6 +1,6 @@
 import init, { capacity, capacity_detail, diff_preview, hide, reveal } from '../wasm/steg_core.js'
 import wasmUrl from '../wasm/steg_core_bg.wasm?url'
-import type { StegWorkerRequest, StegWorkerResponse } from '../lib/steg-types'
+import { GENERIC_FALLBACK, type StegWorkerRequest, type StegWorkerResponse } from '../lib/steg-types'
 
 interface WorkerScope {
   addEventListener(type: 'message', listener: (event: MessageEvent<StegWorkerRequest>) => void): void
@@ -10,7 +10,6 @@ interface WorkerScope {
 const scope = self as unknown as WorkerScope
 
 const REVEAL_FALLBACK = 'No message found, or the password is wrong.'
-const GENERIC_FALLBACK = 'Something went wrong. Please try again.'
 
 function fallbackError(op: StegWorkerRequest['op']): string {
   return op === 'reveal' ? REVEAL_FALLBACK : GENERIC_FALLBACK
