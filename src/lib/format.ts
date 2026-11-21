@@ -88,13 +88,29 @@ export function capacityState(text: string, detail: CapacityLimits): CapacityAss
   }
 }
 
-const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/
+/**
+ * Fallback UTF-16 well-formedness check for runtimes without `String.prototype.isWellFormed`
+ * (e.g. Safari 16.0–16.3, which also lacks RegExp lookbehind).
+ */
+export function isWellFormedUtf16Fallback(s: string): boolean {
+  for (let i = 0; i < s.length; i++) {
+    const code = s.charCodeAt(i)
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = i + 1 < s.length ? s.charCodeAt(i + 1) : 0
+      if (next < 0xdc00 || next > 0xdfff) return false
+      i++
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      return false
+    }
+  }
+  return true
+}
 
 /** True when `s` contains no unpaired UTF-16 surrogates (so UTF-8 conversion is lossless). */
 export function isWellFormedUtf16(s: string): boolean {
   const native = (s as string & { isWellFormed?: () => boolean }).isWellFormed
   if (typeof native === 'function') return native.call(s)
-  return !LONE_SURROGATE.test(s)
+  return isWellFormedUtf16Fallback(s)
 }
 
 /** The image format from its magic bytes, or null if it is neither PNG nor JPEG. */

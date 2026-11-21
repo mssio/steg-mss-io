@@ -4,6 +4,7 @@ import {
   codePoints,
   formatBytes,
   isWellFormedUtf16,
+  isWellFormedUtf16Fallback,
   meterState,
   sniffFormat,
   stegFileName,
@@ -175,7 +176,22 @@ describe('isWellFormedUtf16', () => {
     for (const s of invalid) expect(isWellFormedUtf16(s)).toBe(false)
   })
 
-  test('regex fallback matches native behavior when String.prototype.isWellFormed is absent', () => {
+  test('isWellFormedUtf16Fallback handles ASCII, emoji pairs, and lone/reversed surrogates directly', () => {
+    expect(isWellFormedUtf16Fallback('')).toBe(true)
+    expect(isWellFormedUtf16Fallback('hello ASCII 123')).toBe(true)
+    expect(isWellFormedUtf16Fallback('👀🔥')).toBe(true)
+    expect(isWellFormedUtf16Fallback('a\uD83D\uDE00b')).toBe(true)
+    expect(isWellFormedUtf16Fallback('a\uD800')).toBe(false) // lone high at end
+    expect(isWellFormedUtf16Fallback('a\uD800b')).toBe(false) // lone high mid-string
+    expect(isWellFormedUtf16Fallback('\uD800\uD800')).toBe(false) // high followed by high
+    expect(isWellFormedUtf16Fallback('\uDC00')).toBe(false) // lone low
+    expect(isWellFormedUtf16Fallback('a\uDC00b')).toBe(false) // lone low mid-string
+    expect(isWellFormedUtf16Fallback('\uDC00\uD800')).toBe(false) // reversed pair
+    for (const s of valid) expect(isWellFormedUtf16Fallback(s)).toBe(true)
+    for (const s of invalid) expect(isWellFormedUtf16Fallback(s)).toBe(false)
+  })
+
+  test('fallback matches native behavior when String.prototype.isWellFormed is absent', () => {
     const proto = String.prototype as { isWellFormed?: () => boolean }
     const saved = Object.getOwnPropertyDescriptor(proto, 'isWellFormed')
     Object.defineProperty(proto, 'isWellFormed', { value: undefined, configurable: true, writable: true })
